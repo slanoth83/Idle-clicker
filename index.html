@@ -290,7 +290,7 @@ let achievements = {
 };
 let lastAchMessage = "";
 
-const SAVE_KEY = "idle_clicker_v08_questUI_sfx";
+const SAVE_KEY = "idle_clicker_v09_quest_easyhard_rarity";
 
 let autosaveId = null;
 let idleTickId = null;
@@ -309,7 +309,7 @@ let buildings = [
   { id: "b6", name: "Avaruusasema",  baseCost: 4000000,   baseCps: 42000,    owned: 0 },
 ];
 
-//// ======= QUEST v2 (2 vaihtoehtoa) =======
+//// ======= QUEST v2 =======
 const QUEST_COOLDOWN = 60 * 60; // 1h
 
 let questState = {
@@ -321,7 +321,7 @@ let questState = {
 function nowSec() { return Math.floor(Date.now() / 1000); }
 function newQuestId() { return "q_" + nowSec() + "_" + Math.floor(Math.random() * 1e9); }
 
-//// ======= ÄÄNET (WebAudio, ei tiedostoja) =======
+//// ======= ÄÄNET (WebAudio) =======
 let soundEnabled = true;
 let audioCtx = null;
 
@@ -414,7 +414,7 @@ function costForN(b, n) {
   return Math.ceil(total);
 }
 
-//// ======= SMART MAX BUY (EI JÄÄDY) =======
+//// ======= SMART MAX BUY =======
 function bestValueBuilding() {
   let best = null;
   let bestScore = -Infinity;
@@ -502,7 +502,7 @@ function spendCoins(amount) {
   return true;
 }
 
-//// ======= QUEST v2: GENEROINTI/PROGRESS =======
+//// ======= QUEST: EASY/HARD + RARITY =======
 function makeBaseline() {
   return {
     clicks: totalClicks,
@@ -510,6 +510,17 @@ function makeBaseline() {
     buildings: totalBuildingsOwned(),
     ownedById: Object.fromEntries(buildings.map(b => [b.id, b.owned])),
   };
+}
+
+function rollRarity() {
+  const r = Math.random();
+  if (r < 0.72) return { name: "Common", mult: 1.00 };
+  if (r < 0.94) return { name: "Rare",   mult: 1.35 };
+  return { name: "Epic",   mult: 1.80 };
+}
+
+function clampInt(n, min, max) {
+  return Math.max(min, Math.min(max, Math.floor(n)));
 }
 
 function createQuestTemplate(type, title, target, rewardCoins, rewardSeconds, extra = {}) {
@@ -521,37 +532,98 @@ function createQuestTemplate(type, title, target, rewardCoins, rewardSeconds, ex
     baseline: makeBaseline(),
     rewardCoins,
     rewardSeconds,
+    difficulty: extra.difficulty || "A",
+    rarity: extra.rarity || "Common",
+    rarityMult: extra.rarityMult || 1,
     ...extra
   };
 }
 
-function generateOneQuest() {
+function generateBaseQuest() {
   const curCps = Math.max(1, calcPerSecond());
   const r = Math.random();
 
-  const baseRewardCoins = Math.ceil(curCps * 600);
-  const baseRewardSeconds = 300;
+  const baseRewardCoins = Math.ceil(curCps * 600); // ~10 min cps
+  const baseRewardSeconds = 300;                   // 5 min instant
 
   if (r < 0.28) {
     const target = Math.max(50, Math.min(900, Math.ceil(120 + Math.sqrt(curCps) * 40)));
-    return createQuestTemplate("click", `Klikkaa ${target} kertaa`, target, baseRewardCoins, baseRewardSeconds);
+    return { type: "click", title: `Klikkaa {N} kertaa`, target, rewardCoins: baseRewardCoins, rewardSeconds: baseRewardSeconds };
   }
 
   if (r < 0.56) {
-    const target = Math.max(1000, Math.min(3000000, Math.ceil(curCps * 180)));
-    return createQuestTemplate("earn", `Ansaitse ${fmt(target)} kolikkoa`, target, Math.ceil(baseRewardCoins * 1.05), baseRewardSeconds);
+    const target = Math.max(1000, Math.min(3000000, Math.ceil(curCps * 180))); // ~3 min cps ansaintaa
+    return { type: "earn", title: `Ansaitse {X} kolikkoa`, target, rewardCoins: Math.ceil(baseRewardCoins * 1.05), rewardSeconds: baseRewardSeconds };
   }
 
   if (r < 0.80) {
     const target = Math.max(3, Math.min(60, Math.ceil(6 + Math.log10(curCps + 10) * 6)));
-    return createQuestTemplate("buyAny", `Osta ${target} rakennusta`, target, Math.ceil(baseRewardCoins * 1.1), baseRewardSeconds);
+    return { type: "buyAny", title: `Osta {N} rakennusta`, target, rewardCoins: Math.ceil(baseRewardCoins * 1.10), rewardSeconds: baseRewardSeconds };
   }
 
   const candidates = buildings.slice(1);
   const pick = candidates[Math.floor(Math.random() * candidates.length)];
   const target = Math.max(1, Math.min(12, Math.ceil(2 + Math.log10(curCps + 10) * 1.5)));
 
-  return createQuestTemplate("buySpecific", `Osta ${target} × ${pick.name}`, target, Math.ceil(baseRewardCoins * 1.15), baseRewardSeconds, { targetBuildingId: pick.id });
+  return { type: "buySpecific", title: `Osta {N} × ${pick.name}`, target, rewardCoins: Math.ceil(baseRewardCoins * 1.15), rewardSeconds: baseRewardSeconds, targetBuildingId: pick.id };
+}
+
+function materializeTitle(base, target) {
+  // korvaa {N} / {X} näyttömuotoon
+  return base.title
+    .replace("{N}", String(target))
+    .replace("{X}", fmt(target));
+}
+
+function makeVariantFromBase(base, variant) {
+  // variant: "easy" or "hard"
+  const rar = rollRarity();
+
+  // Skaalat (A helppo / B vaikea)
+  const targetMult = (variant === "easy") ? 0.78 : 1.35;
+  const rewardMult = (variant === "easy") ? 0.75 : 1.55;
+
+  // Typekohtaiset min/maxit (samat kuin generaattorissa, mutta sallitaan turvallisesti)
+  let minT = 1, maxT = 1e12;
+  if (base.type === "click") { minT = 30; maxT = 1200; }
+  if (base.type === "earn")  { minT = 500; maxT = 6_000_000; }
+  if (base.type === "buyAny"){ minT = 2; maxT = 120; }
+  if (base.type === "buySpecific"){ minT = 1; maxT = 25; }
+
+  const t = clampInt(base.target * targetMult, minT, maxT);
+
+  // rewardCoins: base * rewardMult * rarity
+  const rewardCoins = Math.max(1, Math.ceil(base.rewardCoins * rewardMult * rar.mult));
+  const rewardSeconds = clampInt(base.rewardSeconds * (variant === "easy" ? 0.9 : 1.2), 120, 900);
+
+  const title = materializeTitle(base, t);
+
+  return createQuestTemplate(
+    base.type,
+    title,
+    t,
+    rewardCoins,
+    rewardSeconds,
+    {
+      difficulty: variant === "easy" ? "A" : "B",
+      rarity: rar.name,
+      rarityMult: rar.mult,
+      targetBuildingId: base.targetBuildingId
+    }
+  );
+}
+
+function generateQuestPair() {
+  // Tehdään sama quest-tyyppi molemmille => selkeä A/B vertailu
+  const base = generateBaseQuest();
+  const qa = makeVariantFromBase(base, "easy");
+  const qb = makeVariantFromBase(base, "hard");
+
+  // varmistetaan että B on oikeasti “isompi”: (pieni lisävarmistus)
+  if (qb.rewardCoins <= qa.rewardCoins) qb.rewardCoins = Math.ceil(qa.rewardCoins * 1.25);
+  if (qb.target <= qa.target) qb.target = qa.target + Math.max(1, Math.floor(qa.target * 0.25));
+
+  return [qa, qb];
 }
 
 function ensureQuestChoices() {
@@ -559,11 +631,7 @@ function ensureQuestChoices() {
   if (questState.active) return;
   if (Array.isArray(questState.choices) && questState.choices.length === 2) return;
 
-  let a = generateOneQuest();
-  let b = generateOneQuest();
-  let guard = 20;
-  while (guard-- > 0 && (b.type === a.type && b.title === a.title)) b = generateOneQuest();
-
+  const [a, b] = generateQuestPair();
   questState.choices = [a, b];
   markDirty();
 }
@@ -836,22 +904,28 @@ function renderQuestChoicesIfNeeded() {
   lastChoicesKey = key;
 
   questChoicesWrap.innerHTML = "";
-  const labels = ["Vaihtoehto A", "Vaihtoehto B"];
 
-  questState.choices.forEach((q, idx) => {
+  questState.choices.forEach((q) => {
     const box = document.createElement("div");
     box.className = "questChoice fadeInUp";
 
     const title = document.createElement("div");
     title.className = "questTitle";
-    title.textContent = labels[idx] + ": " + q.title;
+    title.textContent = (q.difficulty === "A" ? "Vaihtoehto A (helppo)" : "Vaihtoehto B (vaikea)") + ": " + q.title;
 
     const meta = document.createElement("div");
     meta.className = "questMeta";
-    const tag = document.createElement("span");
-    tag.className = "questTag";
-    tag.textContent = `Palkinto +${fmt(q.rewardCoins)} +${fmt(q.rewardSeconds)}s`;
-    meta.appendChild(tag);
+
+    const tag1 = document.createElement("span");
+    tag1.className = "questTag";
+    tag1.textContent = `Rarity: ${q.rarity}`;
+
+    const tag2 = document.createElement("span");
+    tag2.className = "questTag";
+    tag2.textContent = `Palkinto +${fmt(q.rewardCoins)} +${fmt(q.rewardSeconds)}s`;
+
+    meta.appendChild(tag1);
+    meta.appendChild(tag2);
 
     const btn = document.createElement("button");
     btn.className = "questChoiceBtn";
@@ -869,14 +943,8 @@ function renderQuestChoicesIfNeeded() {
 //// ======= Next quest in -teksti =======
 function updateNextQuestText() {
   const left = cooldownLeft();
-  if (questState.readyAt > 0) {
-    elNextQuestIn.textContent = fmtTime(left);
-    return;
-  }
-  if (!questState.active) {
-    elNextQuestIn.textContent = "now";
-    return;
-  }
+  if (questState.readyAt > 0) { elNextQuestIn.textContent = fmtTime(left); return; }
+  if (!questState.active) { elNextQuestIn.textContent = "now"; return; }
   elNextQuestIn.textContent = "1h after claim";
 }
 
@@ -948,7 +1016,6 @@ function updateUI() {
   const left = cooldownLeft();
   updateNextQuestText();
 
-  // claim button pulse when ready
   claimQuestBtn.classList.toggle("pulse", canClaimActiveQuest());
 
   if (questState.readyAt > 0) {
@@ -959,8 +1026,8 @@ function updateUI() {
     claimQuestBtn.disabled = true;
     renderQuestChoicesIfNeeded();
   } else if (!questState.active) {
-    elQuestText.textContent = "Valitse yksi näistä kahdesta:";
-    elQuestHint.textContent = "Kun valitset, questi aktivoituu.";
+    elQuestText.textContent = "Valitse A (helppo) tai B (vaikea):";
+    elQuestHint.textContent = "B antaa selvästi paremman palkinnon (ja rarity voi nostaa sitä).";
     elQuestFill.style.width = "0%";
     elQuestCooldown.textContent = "Cooldown alkaa vasta kun lunastat";
     claimQuestBtn.disabled = true;
@@ -970,7 +1037,7 @@ function updateUI() {
     const p = activeQuestProgress(q);
     const pct = Math.max(0, Math.min(100, (q.target > 0 ? (p / q.target) * 100 : 0)));
 
-    elQuestText.textContent = `${q.title} (${fmt(p)}/${fmt(q.target)})`;
+    elQuestText.textContent = `[${q.difficulty} | ${q.rarity}] ${q.title} (${fmt(p)}/${fmt(q.target)})`;
     elQuestFill.style.width = pct.toFixed(1) + "%";
     elQuestHint.textContent = `Palkinto: +${fmt(q.rewardCoins)} kolikkoa +${fmt(q.rewardSeconds)}s tuotot heti`;
     elQuestCooldown.textContent = canClaimActiveQuest() ? "Valmis! Lunasta palkinto 👇" : "Lunasta kun valmis";
@@ -1021,7 +1088,6 @@ function loadGame() {
     lifetimeEarned = Number(d.lifetimeEarned) || 0;
 
     if (typeof d.soundEnabled === "boolean") soundEnabled = d.soundEnabled;
-
     if (d.achievements) achievements = { ...achievements, ...d.achievements };
 
     if (d.buyMode === "x1" || d.buyMode === "x10" || d.buyMode === "x25" || d.buyMode === "max") {
@@ -1098,7 +1164,6 @@ claimQuestBtn.onclick = () => {
 
 soundBtn.onclick = () => {
   soundEnabled = !soundEnabled;
-  // user gesture unlock for audio
   if (soundEnabled) ensureAudio();
   markDirty();
 };
@@ -1115,7 +1180,7 @@ buyMode10.onclick = () => setBuyMode("x10");
 buyMode25.onclick = () => setBuyMode("x25");
 buyModeMax.onclick = () => setBuyMode("max");
 
-//// ======= AJASTIMET (EI JÄÄDY) =======
+//// ======= AJASTIMET =======
 function startTimers() {
   if (idleTickId) clearInterval(idleTickId);
   if (autosaveId) clearInterval(autosaveId);
@@ -1128,7 +1193,6 @@ function startTimers() {
   }, 100);
 
   uiTickId = setInterval(() => {
-    // pakotetaan UI päivitys, jotta countdown & pulse näkyy
     markDirty();
     updateUI();
   }, 200);
