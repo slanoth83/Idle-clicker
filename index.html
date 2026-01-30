@@ -242,7 +242,53 @@
     }
     .fadeInUp{ animation: fadeInUp 260ms ease-out both; }
 
+    /* Next quest in bump */
+    @keyframes bump{
+      0% { transform: translateY(0) scale(1); }
+      35% { transform: translateY(-1px) scale(1.08); }
+      100% { transform: translateY(0) scale(1); }
+    }
+    .countBump{
+      display:inline-block;
+      animation: bump 240ms ease-out both;
+    }
+
+    /* READY toast */
+    .toast{
+      position: fixed;
+      left: 50%;
+      top: 18px;
+      transform: translateX(-50%);
+      padding: 10px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(34,197,94,.45);
+      background: rgba(10, 25, 25, .55);
+      color: var(--text);
+      font-weight: 950;
+      letter-spacing: .3px;
+      box-shadow: 0 18px 40px rgba(0,0,0,.25);
+      opacity: 0;
+      pointer-events: none;
+    }
+    @keyframes toastInOut{
+      0% { opacity: 0; transform: translateX(-50%) translateY(-6px); }
+      12% { opacity: 1; transform: translateX(-50%) translateY(0); }
+      80% { opacity: 1; transform: translateX(-50%) translateY(0); }
+      100% { opacity: 0; transform: translateX(-50%) translateY(-8px); }
+    }
+    .toast.show{ animation: toastInOut 1200ms ease-out both; }
+
     hr{ border:none; border-top:1px solid rgba(255,255,255,.10); margin: 12px 0; }
+
+    /* Confetti canvas */
+    #fxCanvas{
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      z-index: 999;
+    }
 
     @media (max-width: 640px){
       body { margin: 18px auto; padding: 0 12px; }
@@ -258,6 +304,9 @@
   </style>
 </head>
 <body>
+
+<canvas id="fxCanvas"></canvas>
+<div class="toast" id="readyToast">✅ QUEST READY!</div>
 
 <h1>Idle Clicker</h1>
 
@@ -380,7 +429,7 @@ let achievements = {
 };
 let lastAchMessage = "";
 
-const SAVE_KEY = "idle_clicker_v10_colorUI_fixed";
+const SAVE_KEY = "idle_clicker_v11_quest_anim_fx";
 
 let autosaveId = null;
 let idleTickId = null;
@@ -527,6 +576,7 @@ function smartMaxBuy() {
 
 //// ======= ACHIEVEMENTIT + MILESTONE =======
 function totalBuildingsOwned() { return buildings.reduce((sum, b) => sum + b.owned, 0); }
+
 function awardAchievement(key, message, rewardFn) {
   if (achievements[key]) return false;
   achievements[key] = true;
@@ -534,6 +584,7 @@ function awardAchievement(key, message, rewardFn) {
   lastAchMessage = message;
   return true;
 }
+
 function addCoins(amount, source = "normal") {
   if (!Number.isFinite(amount) || amount === 0) return;
   coins += amount;
@@ -547,6 +598,7 @@ function spendCoins(amount) {
   markDirty();
   return true;
 }
+
 function checkAchievements() {
   if (totalBuildingsOwned() >= 1) {
     awardAchievement("firstGenerator", "🏆 Ensimmäinen rakennus! +25 kolikkoa", () => addCoins(25, "normal"));
@@ -567,6 +619,7 @@ function checkAchievements() {
     awardAchievement("firstPrestige", "🏆 Ensimmäinen prestige! +5% offline-cap (12h → 12.6h)", () => {});
   }
 }
+
 function getMilestone() {
   const b2 = buildings.find(b => b.id === "b2");
   const b3 = buildings.find(b => b.id === "b3");
@@ -721,8 +774,12 @@ function claimActiveQuest() {
   questState.readyAt = nowSec() + QUEST_COOLDOWN;
 
   SFX.claim();
-  lastChoicesKey = "";
   markDirty();
+
+  // FX: claim confetti
+  const rect = claimQuestBtn.getBoundingClientRect();
+  confettiBurst(rect.left + rect.width * 0.5, rect.top + rect.height * 0.3, 120);
+  spawnToast("🎉 REWARD CLAIMED!");
 }
 function cooldownLeft() {
   if (!questState.readyAt) return 0;
@@ -736,7 +793,6 @@ function maybeEndCooldown() {
     questState.choices = null;
     ensureQuestChoices();
     SFX.ready();
-    lastChoicesKey = "";
     markDirty();
   }
 }
@@ -785,7 +841,107 @@ const claimQuestBtn = document.getElementById("claimQuestBtn");
 const questChoicesWrap = document.getElementById("questChoicesWrap");
 
 const soundBtn = document.getElementById("soundBtn");
+const readyToast = document.getElementById("readyToast");
 
+//// ======= FX: Toast =======
+let toastTimer = null;
+function spawnToast(text) {
+  if (!readyToast) return;
+  readyToast.textContent = text;
+  readyToast.classList.remove("show");
+  // reflow
+  void readyToast.offsetWidth;
+  readyToast.classList.add("show");
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => readyToast.classList.remove("show"), 1400);
+}
+
+//// ======= FX: Confetti =======
+const fxCanvas = document.getElementById("fxCanvas");
+const fx = fxCanvas.getContext("2d");
+let fxW = 0, fxH = 0;
+let particles = [];
+let rafId = null;
+
+function resizeFx() {
+  fxW = fxCanvas.width = Math.floor(window.innerWidth * devicePixelRatio);
+  fxH = fxCanvas.height = Math.floor(window.innerHeight * devicePixelRatio);
+}
+window.addEventListener("resize", resizeFx, { passive: true });
+resizeFx();
+
+function rand(a,b){ return a + Math.random()*(b-a); }
+function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+function confettiBurst(xCss, yCss, count = 90) {
+  // xCss/yCss are in CSS pixels -> convert to device pixels
+  const x = xCss * devicePixelRatio;
+  const y = yCss * devicePixelRatio;
+
+  const colors = [
+    "rgba(56,189,248,0.95)",   // rare
+    "rgba(124,58,237,0.95)",   // accent
+    "rgba(34,197,94,0.95)",    // green
+    "rgba(245,158,11,0.95)",   // amber
+    "rgba(192,132,252,0.95)",  // epic
+    "rgba(255,255,255,0.9)"
+  ];
+
+  for (let i=0;i<count;i++){
+    particles.push({
+      x, y,
+      vx: rand(-7, 7) * devicePixelRatio,
+      vy: rand(-12, -4) * devicePixelRatio,
+      g: 0.42 * devicePixelRatio,
+      rot: rand(0, Math.PI),
+      vr: rand(-0.22, 0.22),
+      w: rand(6, 12) * devicePixelRatio,
+      h: rand(3, 8) * devicePixelRatio,
+      life: rand(55, 95),
+      color: pick(colors),
+      alpha: 1
+    });
+  }
+  startFxLoop();
+}
+
+function startFxLoop(){
+  if (rafId) return;
+  const tick = () => {
+    rafId = requestAnimationFrame(tick);
+    fx.clearRect(0,0,fxW,fxH);
+
+    const next = [];
+    for (const p of particles){
+      p.vy += p.g;
+      p.x += p.vx;
+      p.y += p.vy;
+      p.rot += p.vr;
+      p.life -= 1;
+      p.alpha = Math.max(0, Math.min(1, p.life / 90));
+
+      fx.save();
+      fx.globalAlpha = p.alpha;
+      fx.translate(p.x, p.y);
+      fx.rotate(p.rot);
+      fx.fillStyle = p.color;
+      fx.fillRect(-p.w/2, -p.h/2, p.w, p.h);
+      fx.restore();
+
+      if (p.life > 0 && p.y < fxH + 200) next.push(p);
+    }
+    particles = next;
+
+    if (particles.length === 0){
+      cancelAnimationFrame(rafId);
+      rafId = null;
+      fx.clearRect(0,0,fxW,fxH);
+    }
+  };
+  tick();
+}
+
+//// ======= POP =======
 function spawnPop(text) {
   const el = document.createElement("div");
   el.className = "pop";
@@ -796,6 +952,7 @@ function spawnPop(text) {
   setTimeout(() => el.remove(), 800);
 }
 
+//// ======= SHOP UI =======
 const shopRefs = new Map();
 function buildShopOnce() {
   shopGrid.innerHTML = "";
@@ -881,6 +1038,7 @@ function buyBuilding(id) {
   markDirty();
 }
 
+//// ======= OFFLINE =======
 function offlineCapSeconds() {
   const base = 12 * 60 * 60;
   return achievements.firstPrestige ? Math.floor(base * 1.05) : base;
@@ -909,6 +1067,7 @@ function applyOfflineEarnings() {
   elOfflineInfo.textContent = `poissa ${fmt(secondsAway)}s → +${fmt(gained)} kolikkoa (cap ${fmt(cap)}s)`;
 }
 
+//// ======= QUEST UI =======
 let lastChoicesKey = "";
 function rarityClass(r) {
   if (r === "Epic") return "tagEpic";
@@ -967,12 +1126,24 @@ function renderQuestChoicesIfNeeded() {
   });
 }
 
+let lastNextText = "";
+function setNextQuestTextAnimated(text) {
+  if (text === lastNextText) return;
+  lastNextText = text;
+  elNextQuestIn.textContent = text;
+  elNextQuestIn.classList.remove("countBump");
+  void elNextQuestIn.offsetWidth;
+  elNextQuestIn.classList.add("countBump");
+}
+
 function updateNextQuestText() {
   const left = cooldownLeft();
-  if (questState.readyAt > 0) { elNextQuestIn.textContent = fmtTime(left); return; }
-  if (!questState.active) { elNextQuestIn.textContent = "now"; return; }
-  elNextQuestIn.textContent = "1h after claim";
+  if (questState.readyAt > 0) { setNextQuestTextAnimated(fmtTime(left)); return; }
+  if (!questState.active) { setNextQuestTextAnimated("now"); return; }
+  setNextQuestTextAnimated("1h after claim");
 }
+
+let wasQuestReady = false;
 
 function updateUI() {
   if (!uiDirty) return;
@@ -1042,18 +1213,32 @@ function updateUI() {
   const ready = canClaimActiveQuest();
   claimQuestBtn.classList.toggle("glowReady", ready);
 
+  // READY trigger once (confetti + toast + sound)
+  if (ready && !wasQuestReady) {
+    wasQuestReady = true;
+    SFX.ready();
+    spawnToast("✅ QUEST READY!");
+    const rect = claimQuestBtn.getBoundingClientRect();
+    confettiBurst(rect.left + rect.width * 0.5, rect.top + rect.height * 0.2, 90);
+  }
+  if (!ready) wasQuestReady = false;
+
   const left = cooldownLeft();
+
   if (questState.readyAt > 0) {
+    // cooldown progress (0..100)
+    const pct = Math.max(0, Math.min(100, (1 - (left / QUEST_COOLDOWN)) * 100));
+    elQuestFill.style.width = pct.toFixed(1) + "%";
+
     elQuestText.textContent = "Cooldown käynnissä…";
     elQuestHint.textContent = `Uudet vaihtoehdot ${fmtTime(left)} päästä`;
-    elQuestFill.style.width = "0%";
     elQuestCooldown.textContent = `Cooldown: ${fmtTime(left)}`;
     claimQuestBtn.disabled = true;
     renderQuestChoicesIfNeeded();
   } else if (!questState.active) {
+    elQuestFill.style.width = "0%";
     elQuestText.textContent = "Valitse A (helppo) tai B (vaikea):";
     elQuestHint.textContent = "B antaa paremman palkinnon (rarity voi nostaa sitä).";
-    elQuestFill.style.width = "0%";
     elQuestCooldown.textContent = "Cooldown alkaa vasta kun lunastat";
     claimQuestBtn.disabled = true;
     renderQuestChoicesIfNeeded();
@@ -1074,6 +1259,7 @@ function updateUI() {
   soundBtn.classList.toggle("active", soundEnabled);
 }
 
+//// ======= SAVE / LOAD =======
 function saveGame() {
   localStorage.setItem(SAVE_KEY, JSON.stringify({
     coins, perClick,
@@ -1175,7 +1361,11 @@ prestigeBtn.onclick = () => {
   markDirty();
 };
 
-claimQuestBtn.onclick = () => claimActiveQuest();
+claimQuestBtn.onclick = () => {
+  // myös mobile: herättää audio contextin
+  ensureAudio();
+  claimActiveQuest();
+};
 
 soundBtn.onclick = () => {
   soundEnabled = !soundEnabled;
@@ -1195,6 +1385,7 @@ buyMode10.onclick = () => setBuyMode("x10");
 buyMode25.onclick = () => setBuyMode("x25");
 buyModeMax.onclick = () => setBuyMode("max");
 
+//// ======= AJASTIMET =======
 function startTimers() {
   if (idleTickId) clearInterval(idleTickId);
   if (autosaveId) clearInterval(autosaveId);
