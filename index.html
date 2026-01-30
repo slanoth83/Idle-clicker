@@ -226,6 +226,19 @@
     .tagRare{ border-color: rgba(56,189,248,.55); color: var(--rare); }
     .tagEpic{ border-color: rgba(192,132,252,.55); color: var(--epic); }
 
+    /* ✅ Quest choices vierekkäin desktop */
+    .questChoicesWrap{
+      margin-top: 12px;
+      display:grid;
+      gap: 10px;
+      grid-template-columns: 1fr;
+    }
+    @media (min-width: 760px){
+      .questChoicesWrap{
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
     @keyframes glow{
       0% { box-shadow: 0 0 0 rgba(34,197,94,0), 0 0 0 rgba(124,58,237,0); }
       50% { box-shadow: 0 0 0 3px rgba(34,197,94,.14), 0 0 24px rgba(124,58,237,.18); }
@@ -319,19 +332,7 @@
       z-index: 999;
     }
 
-    /* Screen shake (Epic only) */
-    @keyframes shake{
-      0% { transform: translate(0,0); }
-      15% { transform: translate(-4px, 2px); }
-      30% { transform: translate(4px, -3px); }
-      45% { transform: translate(-3px, -2px); }
-      60% { transform: translate(3px, 2px); }
-      75% { transform: translate(-2px, 1px); }
-      100% { transform: translate(0,0); }
-    }
-    body.shake{ animation: shake 320ms ease-out; }
-
-    /* Tier unlock box */
+    /* Tier unlock box + actions row */
     .tierBox{
       margin-top: 10px;
       border: 1px solid rgba(255,255,255,.12);
@@ -348,6 +349,7 @@
     .tierTitle{ font-weight: 950; }
     .tierHint{ color: var(--muted); font-size: 13px; }
     .tierRight{ display:flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .btnWide{ min-width: 240px; }
 
     @media (max-width: 640px){
       body { margin: 18px auto; padding: 0 12px; }
@@ -360,6 +362,7 @@
       .itemTop { flex-direction: column; align-items: flex-start; }
       .popLayer { padding-bottom: 6px; }
       .tierRight{ width:100%; }
+      .btnWide{ min-width: 0; }
     }
   </style>
 </head>
@@ -418,20 +421,21 @@
         <circle class="ringProg" id="cooldownRing" cx="18" cy="18" r="14"></circle>
       </svg>
     </div>
-    <div>
-      Next quest in: <span id="nextQuestIn">-</span>
-    </div>
+    <div>Next quest in: <span id="nextQuestIn">-</span></div>
   </div>
 
-  <div id="questChoicesWrap" style="margin-top:12px; display:grid; gap:10px;"></div>
+  <!-- ✅ vierekkäin grid -->
+  <div id="questChoicesWrap" class="questChoicesWrap"></div>
 </div>
 
 <div class="card">
   <div class="big">Prestige: <span id="prestigePts">0</span> pts</div>
   <div class="muted">Kerroin: x<span id="prestigeMult">1.00</span></div>
-  <button id="prestigeBtn" class="btnPrimary">Prestige (saat <span id="prestigeGain">0</span>)</button>
   <div class="muted small" style="margin-top:8px;">
     Balanssi: saat prestige-pisteitä noin <b>5k</b> kolikon välein (nousee hitaasti), ja jokainen piste antaa <b>+4%</b>.
+  </div>
+  <div class="muted small" style="margin-top:8px;">
+    Prestige-nappi on Kaupan “Toiminnot”-rivillä.
   </div>
 </div>
 
@@ -450,7 +454,7 @@
     </div>
   </div>
 
-  <!-- Tier unlock UI -->
+  <!-- ✅ Tier unlock + Prestige samalla rivillä -->
   <div class="tierBox" id="tierBox">
     <div class="tierLeft">
       <div class="tierTitle" id="tierUnlockTitle">-</div>
@@ -458,7 +462,12 @@
     </div>
     <div class="tierRight">
       <span class="chip">Hinta: <span id="tierUnlockCost">-</span></span>
-      <button id="buyTierBtn" class="btnWarn">Avaa seuraava tier</button>
+
+      <button id="buyTierBtn" class="btnWarn btnWide">Avaa seuraava tier</button>
+
+      <button id="prestigeBtn" class="btnPrimary btnWide">
+        Prestige (saat <span id="prestigeGain">0</span>)
+      </button>
     </div>
   </div>
 
@@ -509,7 +518,7 @@ let achievements = {
 };
 let lastAchMessage = "";
 
-const SAVE_KEY = "idle_clicker_v14_tierbutton_questbaseline";
+const SAVE_KEY = "idle_clicker_v15_uirow_tierbutton_prestigereset";
 
 let autosaveId = null;
 let idleTickId = null;
@@ -553,19 +562,15 @@ function nextLockedIndex() {
   return -1;
 }
 
-// Hinta: mitä aiemmin avaat, sitä kalliimpi (riippuu "puuttuvista")
+// Hinta: riippuu siitä paljonko puuttuu 10:stä (kalliimpi jos avaat "aikaisin")
 function calcTierUnlockCost(nextIdx) {
   if (nextIdx < 1) return 0;
   const prev = buildings[nextIdx - 1];
   const next = buildings[nextIdx];
   const missing = Math.max(0, 10 - (prev.owned || 0)); // 0..10
 
-  // base = seuraavan rakennuksen baseCost * kertoimet
   const base = next.baseCost;
-
-  // 1.4..2.2 (jos missing=10 => 2.2), prestige tekee pienen nousun
   const mult = 1.4 + (missing / 10) * 0.8 + Math.min(0.6, prestigePoints * 0.02);
-
   return Math.ceil(base * mult);
 }
 
@@ -579,15 +584,7 @@ function getTierUnlockInfo() {
   const remaining = Math.max(0, 10 - owned);
   const cost = calcTierUnlockCost(idx);
 
-  return {
-    done: false,
-    idx,
-    prevName: prev.name,
-    nextName: next.name,
-    owned,
-    remaining,
-    cost
-  };
+  return { done:false, idx, prevName: prev.name, nextName: next.name, owned, remaining, cost };
 }
 
 function buyNextTierUnlock() {
@@ -811,7 +808,7 @@ function createQuestTemplate(type, title, target, rewardCoins, rewardSeconds, ex
   return {
     id: newQuestId(),
     type, title, target,
-    baseline: null, // ✅ baseline vasta hyväksynnässä
+    baseline: null,
     rewardCoins, rewardSeconds,
     difficulty: extra.difficulty || "A",
     rarity: extra.rarity || "Common",
@@ -842,7 +839,6 @@ function generateBaseQuest() {
     return { type: "buyAny", title: `Osta {N} rakennusta`, target, rewardCoins: Math.ceil(baseRewardCoins * 1.10), rewardSeconds: baseRewardSeconds };
   }
 
-  // buy specific: valitse vain AUKI olevista (ei lukittuja)
   const candidates = buildings.slice(1).filter(b => isUnlockedId(b.id));
   if (candidates.length === 0) {
     const target = Math.max(3, Math.min(60, Math.ceil(6 + Math.log10(curCps + 10) * 6)));
@@ -1021,7 +1017,6 @@ const questChoicesWrap = document.getElementById("questChoicesWrap");
 const soundBtn = document.getElementById("soundBtn");
 const readyToast = document.getElementById("readyToast");
 
-const tierBox = document.getElementById("tierBox");
 const tierUnlockTitle = document.getElementById("tierUnlockTitle");
 const tierUnlockHint = document.getElementById("tierUnlockHint");
 const tierUnlockCost = document.getElementById("tierUnlockCost");
@@ -1034,10 +1029,9 @@ const RING_C = 2 * Math.PI * RING_R;
 cooldownRing.style.strokeDasharray = String(RING_C);
 cooldownRing.style.strokeDashoffset = String(RING_C);
 
-//// ======= FX: Toast =======
+//// ======= FX =======
 let toastTimer = null;
 function spawnToast(text) {
-  if (!readyToast) return;
   readyToast.textContent = text;
   readyToast.classList.remove("show");
   void readyToast.offsetWidth;
@@ -1046,18 +1040,15 @@ function spawnToast(text) {
   toastTimer = setTimeout(() => readyToast.classList.remove("show"), 1400);
 }
 
-//// ======= FX: Confetti (kevyt placeholder, ei pakollinen) =======
 const fxCanvas = document.getElementById("fxCanvas");
 const fx = fxCanvas.getContext("2d");
-let fxW = 0, fxH = 0;
 function resizeFx() {
-  fxW = fxCanvas.width = Math.floor(window.innerWidth * devicePixelRatio);
-  fxH = fxCanvas.height = Math.floor(window.innerHeight * devicePixelRatio);
+  fxCanvas.width = Math.floor(window.innerWidth * devicePixelRatio);
+  fxCanvas.height = Math.floor(window.innerHeight * devicePixelRatio);
 }
 window.addEventListener("resize", resizeFx, { passive: true });
 resizeFx();
 
-//// ======= POP =======
 function spawnPop(text) {
   const el = document.createElement("div");
   el.className = "pop";
@@ -1196,6 +1187,7 @@ function rarityClass(r) {
   if (r === "Rare") return "tagRare";
   return "tagCommon";
 }
+
 function renderQuestChoicesIfNeeded() {
   if (questState.readyAt > 0 || questState.active) {
     lastChoicesKey = "";
@@ -1332,7 +1324,7 @@ function updateUI() {
   list.push(achievements.firstPrestige ? "✅ Ensimmäinen prestige" : "⬜ Ensimmäinen prestige");
   elAchText.textContent = (lastAchMessage ? (lastAchMessage + " | ") : "") + list.join(" • ");
 
-  // ✅ Tier unlock UI
+  // Tier unlock UI
   const info = getTierUnlockInfo();
   if (info.done) {
     tierUnlockTitle.textContent = "Kaikki tierit avattu 🎉";
@@ -1431,7 +1423,7 @@ function saveGame() {
     clickUpgrades, clickUpgradeCost,
     prestigePoints,
     buildings: buildings.map(b => ({ id: b.id, owned: b.owned })),
-    manualUnlocked, // ✅
+    manualUnlocked,
     totalClicks,
     lifetimeEarned,
     achievements,
@@ -1506,12 +1498,18 @@ buyClickBtn.onclick = () => {
   markDirty();
 };
 
+buyTierBtn.onclick = () => {
+  ensureAudio();
+  buyNextTierUnlock();
+};
+
 prestigeBtn.onclick = () => {
   const gain = calcPrestigeGain();
   if (gain <= 0) return;
 
   prestigePoints += gain;
 
+  // resetoi “normaalit”
   coins = 0;
   perClick = 1;
   clickUpgrades = 0;
@@ -1519,13 +1517,13 @@ prestigeBtn.onclick = () => {
   totalClicks = 0;
   for (const b of buildings) b.owned = 0;
 
-  // halutessasi: prestige ei poista tier-unlock ostoja
-  // (jos haluat että poistaa, laita: manualUnlocked = {}; )
-  // manualUnlocked = {};
+  // ✅ B: tier unlock ostot nollataan myös
+  manualUnlocked = {};
 
   elOfflineInfo.textContent = "-";
   lastAchMessage = "";
 
+  // quest reset: uusi valinta heti
   questState.active = null;
   questState.choices = null;
   questState.readyAt = 0;
@@ -1533,11 +1531,6 @@ prestigeBtn.onclick = () => {
 
   saveGame();
   markDirty();
-};
-
-buyTierBtn.onclick = () => {
-  ensureAudio();
-  buyNextTierUnlock();
 };
 
 claimQuestBtn.onclick = () => {
