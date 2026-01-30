@@ -5,154 +5,285 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Idle Clicker</title>
   <style>
-    :root { --radius: 14px; }
+    :root{
+      --radius: 16px;
 
-    body {
-      font-family: system-ui, Arial, sans-serif;
-      max-width: 980px;
-      margin: 40px auto;
-      padding: 0 16px;
+      --bg1:#0b1020;
+      --bg2:#0b1d2d;
+      --card:#0f172a;
+      --card2:#111c33;
+      --border: rgba(255,255,255,.10);
+
+      --text:#e9eefc;
+      --muted:#a8b3d6;
+
+      --accent:#7c3aed;   /* purple */
+      --accent2:#22c55e;  /* green */
+      --warn:#f59e0b;     /* amber */
+      --danger:#ef4444;   /* red */
+
+      --common:#94a3b8;
+      --rare:#38bdf8;
+      --epic:#c084fc;
+
+      --shadow: 0 18px 45px rgba(0,0,0,.35);
+      --shadow2: 0 10px 24px rgba(0,0,0,.28);
     }
 
-    h1 { margin: 0 0 12px; }
+    *{ box-sizing:border-box; }
 
-    .card {
-      border: 1px solid #ddd;
+    body{
+      font-family: system-ui, -apple-system, Segoe UI, Arial, sans-serif;
+      max-width: 980px;
+      margin: 34px auto;
+      padding: 0 16px;
+      color: var(--text);
+      background:
+        radial-gradient(900px 500px at 10% 10%, rgba(124,58,237,.22), transparent 60%),
+        radial-gradient(800px 500px at 90% 0%, rgba(56,189,248,.18), transparent 60%),
+        radial-gradient(900px 700px at 60% 90%, rgba(34,197,94,.16), transparent 60%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+      min-height: 100vh;
+    }
+
+    h1{
+      margin: 0 0 12px;
+      font-weight: 950;
+      letter-spacing: .2px;
+    }
+
+    .card{
+      border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: 16px;
       margin: 12px 0;
-      background: #fff;
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      box-shadow: var(--shadow2);
+      backdrop-filter: blur(6px);
     }
 
-    .row {
-      display: flex;
+    .row{
+      display:flex;
       gap: 12px;
       flex-wrap: wrap;
+      align-items:center;
+    }
+
+    .big{ font-size: 22px; font-weight: 950; }
+    .muted{ color: var(--muted); }
+    .small{ font-size: 13px; }
+    code{
+      background: rgba(255,255,255,.08);
+      padding: 2px 6px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,.10);
+      color: var(--text);
+    }
+
+    .statLine{
+      display:flex;
+      gap: 10px;
+      flex-wrap: wrap;
       align-items: center;
+      margin-top: 6px;
+      color: var(--muted);
     }
+    .chip{
+      display:inline-flex;
+      align-items:center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.04);
+      font-weight: 800;
+      color: var(--text);
+    }
+    .dot{
+      width: 8px; height: 8px; border-radius: 99px;
+      background: var(--accent2);
+      box-shadow: 0 0 16px rgba(34,197,94,.45);
+    }
+    .dot.purple{ background: var(--accent); box-shadow: 0 0 16px rgba(124,58,237,.45); }
+    .dot.blue{ background: #38bdf8; box-shadow: 0 0 16px rgba(56,189,248,.45); }
 
-    .big { font-size: 22px; font-weight: 900; }
-    .muted { color: #666; }
-    .small { font-size: 13px; }
-    code { background: #f6f6f6; padding: 2px 6px; border-radius: 6px; }
-
-    button {
+    button{
       padding: 12px 14px;
-      border-radius: 12px;
-      border: 1px solid #ccc;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.14);
       cursor: pointer;
-      background: #fff;
-      font-weight: 700;
+      background: rgba(255,255,255,.06);
+      color: var(--text);
+      font-weight: 850;
+      transition: transform .08s ease, background .15s ease, border-color .15s ease, box-shadow .15s ease;
     }
-    button:disabled { opacity: .55; cursor: not-allowed; }
+    button:hover{
+      background: rgba(255,255,255,.09);
+      border-color: rgba(255,255,255,.22);
+      box-shadow: 0 10px 24px rgba(0,0,0,.25);
+    }
+    button:active{ transform: translateY(1px) scale(.99); }
+    button:disabled{
+      opacity: .55;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
 
-    .shopGrid {
-      display: grid;
+    .btnPrimary{
+      background: linear-gradient(180deg, rgba(124,58,237,.9), rgba(124,58,237,.65));
+      border-color: rgba(124,58,237,.65);
+      box-shadow: 0 18px 40px rgba(124,58,237,.18);
+    }
+    .btnPrimary:hover{
+      background: linear-gradient(180deg, rgba(124,58,237,.95), rgba(124,58,237,.72));
+      box-shadow: 0 22px 50px rgba(124,58,237,.22);
+    }
+    .btnGood{
+      background: linear-gradient(180deg, rgba(34,197,94,.9), rgba(34,197,94,.65));
+      border-color: rgba(34,197,94,.65);
+      box-shadow: 0 18px 40px rgba(34,197,94,.16);
+    }
+    .btnWarn{
+      background: linear-gradient(180deg, rgba(245,158,11,.9), rgba(245,158,11,.62));
+      border-color: rgba(245,158,11,.7);
+      box-shadow: 0 18px 40px rgba(245,158,11,.16);
+    }
+    .btnDanger{
+      background: linear-gradient(180deg, rgba(239,68,68,.9), rgba(239,68,68,.62));
+      border-color: rgba(239,68,68,.7);
+      box-shadow: 0 18px 40px rgba(239,68,68,.14);
+    }
+
+    .shopGrid{
+      display:grid;
       grid-template-columns: 1fr;
       gap: 10px;
       margin-top: 12px;
     }
-
-    .item {
-      border: 1px solid #eee;
+    .item{
+      border: 1px solid rgba(255,255,255,.10);
       border-radius: var(--radius);
       padding: 12px;
-      display: grid;
+      display:grid;
       gap: 8px;
+      background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.025));
     }
-
-    .itemTop {
+    .itemTop{
       display:flex;
       justify-content: space-between;
       gap: 12px;
       align-items: baseline;
       flex-wrap: wrap;
     }
+    .itemName{
+      font-weight: 950;
+      letter-spacing: .2px;
+    }
 
-    .itemName { font-weight: 950; }
-
-    .pillRow { display:flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-    .pill {
-      border: 1px solid #ddd;
+    .pillRow{ display:flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .pill{
+      border: 1px solid rgba(255,255,255,.14);
       border-radius: 999px;
       padding: 8px 12px;
-      background: #fff;
-      font-weight: 800;
+      background: rgba(255,255,255,.06);
+      font-weight: 900;
+      color: var(--text);
     }
-    .pill.active { border-color: #999; }
+    .pill.active{
+      border-color: rgba(56,189,248,.55);
+      box-shadow: 0 0 0 3px rgba(56,189,248,.14);
+    }
 
-    .btnRow { display:flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-
-    hr { border: none; border-top: 1px solid #eee; margin: 12px 0; }
+    hr{ border:none; border-top:1px solid rgba(255,255,255,.10); margin: 12px 0; }
 
     /* Click pop */
-    .popLayer { position: relative; }
-    .pop {
-      position: absolute;
-      left: 10px;
-      top: -6px;
-      pointer-events: none;
+    .popLayer{ position: relative; }
+    .pop{
+      position:absolute;
+      left:10px;
+      top:-6px;
+      pointer-events:none;
       font-weight: 950;
-      opacity: 0;
+      opacity:0;
       transform: translateY(0);
       animation: popAnim 650ms ease-out forwards;
-      white-space: nowrap;
+      white-space:nowrap;
+      text-shadow: 0 8px 24px rgba(0,0,0,.35);
     }
-    @keyframes popAnim {
+    @keyframes popAnim{
       0% { opacity: 0; transform: translateY(0); }
       10% { opacity: 1; }
       100% { opacity: 0; transform: translateY(-22px); }
     }
 
     /* Progress bar */
-    .progressWrap { margin-top: 10px; }
-    .progressBar {
+    .progressWrap{ margin-top: 10px; }
+    .progressBar{
       height: 10px;
       border-radius: 999px;
-      background: #f2f2f2;
-      border: 1px solid #e6e6e6;
-      overflow: hidden;
+      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(255,255,255,.12);
+      overflow:hidden;
     }
-    .progressFill {
-      height: 100%;
-      width: 0%;
-      background: #cfcfcf;
+    .progressFill{
+      height:100%;
+      width:0%;
+      background: linear-gradient(90deg, rgba(56,189,248,.9), rgba(124,58,237,.9));
       transition: width 200ms linear;
+      box-shadow: 0 0 22px rgba(56,189,248,.18);
     }
 
     /* Quest */
-    .questChoice {
-      border: 1px solid #eee;
-      border-radius: 14px;
+    .questChoice{
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 16px;
       padding: 12px;
-      display: grid;
+      display:grid;
       gap: 10px;
-      background: #fff;
+      background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
     }
-    .questTitle { font-weight: 900; }
-    .questMeta { display:flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-    .questTag { border:1px solid #ddd; border-radius:999px; padding:6px 10px; font-weight:800; }
-    .questChoiceBtn { width: 100%; }
+    .questTitle{ font-weight: 950; }
+    .questMeta{ display:flex; gap: 10px; flex-wrap: wrap; align-items:center; }
+    .questTag{
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-weight: 900;
+      background: rgba(255,255,255,.05);
+    }
+
+    .tagCommon{ border-color: rgba(148,163,184,.45); color: var(--common); }
+    .tagRare{ border-color: rgba(56,189,248,.55); color: var(--rare); }
+    .tagEpic{ border-color: rgba(192,132,252,.55); color: var(--epic); }
 
     /* Animations */
-    @keyframes pulseSoft {
+    @keyframes pulseSoft{
       0% { transform: scale(1); box-shadow: 0 0 0 rgba(0,0,0,0); }
-      50% { transform: scale(1.02); box-shadow: 0 10px 20px rgba(0,0,0,0.06); }
+      50% { transform: scale(1.02); box-shadow: 0 14px 30px rgba(0,0,0,0.25); }
       100% { transform: scale(1); box-shadow: 0 0 0 rgba(0,0,0,0); }
     }
-    .pulse {
+    .pulse{
       animation: pulseSoft 900ms ease-in-out infinite;
-      border-color: #999;
     }
 
-    @keyframes fadeInUp {
+    @keyframes glow{
+      0% { box-shadow: 0 0 0 rgba(34,197,94,0), 0 0 0 rgba(124,58,237,0); }
+      50% { box-shadow: 0 0 0 3px rgba(34,197,94,.14), 0 0 24px rgba(124,58,237,.18); }
+      100% { box-shadow: 0 0 0 rgba(34,197,94,0), 0 0 0 rgba(124,58,237,0); }
+    }
+    .glowReady{
+      animation: glow 900ms ease-in-out infinite;
+      border-color: rgba(34,197,94,.55) !important;
+    }
+
+    @keyframes fadeInUp{
       from { opacity: 0; transform: translateY(8px); }
       to   { opacity: 1; transform: translateY(0); }
     }
-    .fadeInUp { animation: fadeInUp 260ms ease-out both; }
+    .fadeInUp{ animation: fadeInUp 260ms ease-out both; }
 
     /* ======= MOBIILI ======= */
-    @media (max-width: 640px) {
+    @media (max-width: 640px){
       body { margin: 18px auto; padding: 0 12px; }
       .card { padding: 14px; }
       .big { font-size: 20px; }
@@ -160,7 +291,6 @@
       .row { align-items: stretch; }
       .pillRow { width: 100%; }
       .pill { width: auto; }
-      .btnRow { align-items: stretch; }
       .itemTop { flex-direction: column; align-items: flex-start; }
       .popLayer { padding-bottom: 6px; }
     }
@@ -172,14 +302,14 @@
 
 <div class="card">
   <div class="big">Kolikot: <span id="coins">0</span></div>
-  <div class="muted">
-    Per klikki: <span id="perClick">1</span> |
-    Per sekunti: <span id="perSec">0</span>
+  <div class="statLine">
+    <span class="chip"><span class="dot"></span> Per klikki: <span id="perClick">1</span></span>
+    <span class="chip"><span class="dot blue"></span> Per sekunti: <span id="perSec">0</span></span>
   </div>
 </div>
 
 <div class="card row">
-  <button id="buyClickBtn">
+  <button id="buyClickBtn" class="btnPrimary">
     Osta Click Upgrade (+1)
     (hinta <span id="clickCost">25</span>)
   </button>
@@ -187,13 +317,13 @@
 </div>
 
 <div class="card row popLayer">
-  <button id="clickBtn">Klikkaa +<span id="clickGain">1</span></button>
+  <button id="clickBtn" class="btnGood">Klikkaa +<span id="clickGain">1</span></button>
   <button id="saveBtn">Save</button>
-  <button id="resetBtn">Reset</button>
+  <button id="resetBtn" class="btnDanger">Reset</button>
   <div id="popContainer"></div>
 </div>
 
-<!-- QUEST v2 -->
+<!-- QUEST -->
 <div class="card">
   <div class="row" style="justify-content: space-between; align-items: baseline;">
     <div class="big">Questi</div>
@@ -208,7 +338,7 @@
   </div>
 
   <div class="row" style="margin-top:10px;">
-    <button id="claimQuestBtn">Lunasta palkinto</button>
+    <button id="claimQuestBtn" class="btnWarn">Lunasta palkinto</button>
     <div class="muted small" id="questCooldown">-</div>
   </div>
 
@@ -222,7 +352,7 @@
 <div class="card">
   <div class="big">Prestige: <span id="prestigePts">0</span> pts</div>
   <div class="muted">Kerroin: x<span id="prestigeMult">1.00</span></div>
-  <button id="prestigeBtn">Prestige (saat <span id="prestigeGain">0</span>)</button>
+  <button id="prestigeBtn" class="btnPrimary">Prestige (saat <span id="prestigeGain">0</span>)</button>
   <div class="muted small" style="margin-top:8px;">
     Balanssi: saat prestige-pisteitä noin <b>5k</b> kolikon välein (nousee hitaasti), ja jokainen piste antaa <b>+4%</b>.
   </div>
@@ -290,7 +420,7 @@ let achievements = {
 };
 let lastAchMessage = "";
 
-const SAVE_KEY = "idle_clicker_v09_quest_easyhard_rarity";
+const SAVE_KEY = "idle_clicker_v10_colorUI";
 
 let autosaveId = null;
 let idleTickId = null;
@@ -309,7 +439,7 @@ let buildings = [
   { id: "b6", name: "Avaruusasema",  baseCost: 4000000,   baseCps: 42000,    owned: 0 },
 ];
 
-//// ======= QUEST v2 =======
+//// ======= QUEST =======
 const QUEST_COOLDOWN = 60 * 60; // 1h
 
 let questState = {
@@ -386,7 +516,6 @@ function fmt(n) {
   }
   return String(Math.floor(x));
 }
-
 function fmtTime(secs) {
   const s = Math.max(0, Math.floor(secs));
   const h = Math.floor(s / 3600);
@@ -442,7 +571,6 @@ function smartMaxBuy() {
 
 //// ======= ACHIEVEMENTIT + MILESTONE =======
 function totalBuildingsOwned() { return buildings.reduce((sum, b) => sum + b.owned, 0); }
-
 function awardAchievement(key, message, rewardFn) {
   if (achievements[key]) return false;
   achievements[key] = true;
@@ -450,7 +578,6 @@ function awardAchievement(key, message, rewardFn) {
   lastAchMessage = message;
   return true;
 }
-
 function checkAchievements() {
   if (totalBuildingsOwned() >= 1) {
     awardAchievement("firstGenerator", "🏆 Ensimmäinen rakennus! +25 kolikkoa", () => addCoins(25, "normal"));
@@ -471,7 +598,6 @@ function checkAchievements() {
     awardAchievement("firstPrestige", "🏆 Ensimmäinen prestige! +5% offline-cap (12h → 12.6h)", () => {});
   }
 }
-
 function getMilestone() {
   const b2 = buildings.find(b => b.id === "b2");
   const b3 = buildings.find(b => b.id === "b3");
@@ -493,7 +619,6 @@ function addCoins(amount, source = "normal") {
   if (amount > 0 && source !== "questReward") lifetimeEarned += amount;
   markDirty();
 }
-
 function spendCoins(amount) {
   if (!Number.isFinite(amount) || amount <= 0) return false;
   if (coins < amount) return false;
@@ -511,18 +636,15 @@ function makeBaseline() {
     ownedById: Object.fromEntries(buildings.map(b => [b.id, b.owned])),
   };
 }
-
 function rollRarity() {
   const r = Math.random();
   if (r < 0.72) return { name: "Common", mult: 1.00 };
   if (r < 0.94) return { name: "Rare",   mult: 1.35 };
   return { name: "Epic",   mult: 1.80 };
 }
-
 function clampInt(n, min, max) {
   return Math.max(min, Math.min(max, Math.floor(n)));
 }
-
 function createQuestTemplate(type, title, target, rewardCoins, rewardSeconds, extra = {}) {
   return {
     id: newQuestId(),
@@ -535,27 +657,24 @@ function createQuestTemplate(type, title, target, rewardCoins, rewardSeconds, ex
     difficulty: extra.difficulty || "A",
     rarity: extra.rarity || "Common",
     rarityMult: extra.rarityMult || 1,
-    ...extra
+    targetBuildingId: extra.targetBuildingId
   };
 }
-
 function generateBaseQuest() {
   const curCps = Math.max(1, calcPerSecond());
   const r = Math.random();
 
-  const baseRewardCoins = Math.ceil(curCps * 600); // ~10 min cps
-  const baseRewardSeconds = 300;                   // 5 min instant
+  const baseRewardCoins = Math.ceil(curCps * 600);
+  const baseRewardSeconds = 300;
 
   if (r < 0.28) {
     const target = Math.max(50, Math.min(900, Math.ceil(120 + Math.sqrt(curCps) * 40)));
     return { type: "click", title: `Klikkaa {N} kertaa`, target, rewardCoins: baseRewardCoins, rewardSeconds: baseRewardSeconds };
   }
-
   if (r < 0.56) {
-    const target = Math.max(1000, Math.min(3000000, Math.ceil(curCps * 180))); // ~3 min cps ansaintaa
+    const target = Math.max(1000, Math.min(3000000, Math.ceil(curCps * 180)));
     return { type: "earn", title: `Ansaitse {X} kolikkoa`, target, rewardCoins: Math.ceil(baseRewardCoins * 1.05), rewardSeconds: baseRewardSeconds };
   }
-
   if (r < 0.80) {
     const target = Math.max(3, Math.min(60, Math.ceil(6 + Math.log10(curCps + 10) * 6)));
     return { type: "buyAny", title: `Osta {N} rakennusta`, target, rewardCoins: Math.ceil(baseRewardCoins * 1.10), rewardSeconds: baseRewardSeconds };
@@ -564,26 +683,16 @@ function generateBaseQuest() {
   const candidates = buildings.slice(1);
   const pick = candidates[Math.floor(Math.random() * candidates.length)];
   const target = Math.max(1, Math.min(12, Math.ceil(2 + Math.log10(curCps + 10) * 1.5)));
-
   return { type: "buySpecific", title: `Osta {N} × ${pick.name}`, target, rewardCoins: Math.ceil(baseRewardCoins * 1.15), rewardSeconds: baseRewardSeconds, targetBuildingId: pick.id };
 }
-
 function materializeTitle(base, target) {
-  // korvaa {N} / {X} näyttömuotoon
-  return base.title
-    .replace("{N}", String(target))
-    .replace("{X}", fmt(target));
+  return base.title.replace("{N}", String(target)).replace("{X}", fmt(target));
 }
-
 function makeVariantFromBase(base, variant) {
-  // variant: "easy" or "hard"
   const rar = rollRarity();
-
-  // Skaalat (A helppo / B vaikea)
   const targetMult = (variant === "easy") ? 0.78 : 1.35;
   const rewardMult = (variant === "easy") ? 0.75 : 1.55;
 
-  // Typekohtaiset min/maxit (samat kuin generaattorissa, mutta sallitaan turvallisesti)
   let minT = 1, maxT = 1e12;
   if (base.type === "click") { minT = 30; maxT = 1200; }
   if (base.type === "earn")  { minT = 500; maxT = 6_000_000; }
@@ -591,16 +700,12 @@ function makeVariantFromBase(base, variant) {
   if (base.type === "buySpecific"){ minT = 1; maxT = 25; }
 
   const t = clampInt(base.target * targetMult, minT, maxT);
-
-  // rewardCoins: base * rewardMult * rarity
   const rewardCoins = Math.max(1, Math.ceil(base.rewardCoins * rewardMult * rar.mult));
   const rewardSeconds = clampInt(base.rewardSeconds * (variant === "easy" ? 0.9 : 1.2), 120, 900);
 
-  const title = materializeTitle(base, t);
-
   return createQuestTemplate(
     base.type,
-    title,
+    materializeTitle(base, t),
     t,
     rewardCoins,
     rewardSeconds,
@@ -612,20 +717,14 @@ function makeVariantFromBase(base, variant) {
     }
   );
 }
-
 function generateQuestPair() {
-  // Tehdään sama quest-tyyppi molemmille => selkeä A/B vertailu
   const base = generateBaseQuest();
   const qa = makeVariantFromBase(base, "easy");
   const qb = makeVariantFromBase(base, "hard");
-
-  // varmistetaan että B on oikeasti “isompi”: (pieni lisävarmistus)
   if (qb.rewardCoins <= qa.rewardCoins) qb.rewardCoins = Math.ceil(qa.rewardCoins * 1.25);
   if (qb.target <= qa.target) qb.target = qa.target + Math.max(1, Math.floor(qa.target * 0.25));
-
   return [qa, qb];
 }
-
 function ensureQuestChoices() {
   if (questState.readyAt > 0) return;
   if (questState.active) return;
@@ -635,7 +734,6 @@ function ensureQuestChoices() {
   questState.choices = [a, b];
   markDirty();
 }
-
 function activeQuestProgress(q) {
   if (!q) return 0;
   if (q.type === "click") return Math.max(0, totalClicks - q.baseline.clicks);
@@ -649,14 +747,12 @@ function activeQuestProgress(q) {
   }
   return 0;
 }
-
 function canClaimActiveQuest() {
   const q = questState.active;
   if (!q) return false;
   if (questState.readyAt > 0) return false;
   return activeQuestProgress(q) >= q.target;
 }
-
 function chooseQuest(choiceId) {
   if (!questState.choices || questState.readyAt > 0 || questState.active) return;
   const picked = questState.choices.find(q => q.id === choiceId);
@@ -668,7 +764,6 @@ function chooseQuest(choiceId) {
   SFX.choose();
   markDirty();
 }
-
 function claimActiveQuest() {
   if (!canClaimActiveQuest()) return;
   const q = questState.active;
@@ -684,12 +779,10 @@ function claimActiveQuest() {
   lastChoicesKey = "";
   markDirty();
 }
-
 function cooldownLeft() {
   if (!questState.readyAt) return 0;
   return Math.max(0, questState.readyAt - nowSec());
 }
-
 function maybeEndCooldown() {
   if (!questState.readyAt) return;
   if (cooldownLeft() === 0) {
@@ -703,7 +796,7 @@ function maybeEndCooldown() {
   }
 }
 
-//// ======= UI ELEMENTIT =======
+//// ======= UI =======
 const elCoins = document.getElementById("coins");
 const elPerClick = document.getElementById("perClick");
 const elPerSec = document.getElementById("perSec");
@@ -750,7 +843,7 @@ const questChoicesWrap = document.getElementById("questChoicesWrap");
 // sound ui
 const soundBtn = document.getElementById("soundBtn");
 
-//// ======= POP EFFECT =======
+//// Pop
 function spawnPop(text) {
   const el = document.createElement("div");
   el.className = "pop";
@@ -761,9 +854,8 @@ function spawnPop(text) {
   setTimeout(() => el.remove(), 800);
 }
 
-//// ======= SHOP UI: BUILD ONCE =======
+//// Shop UI build once
 const shopRefs = new Map();
-
 function buildShopOnce() {
   shopGrid.innerHTML = "";
   for (const b of buildings) {
@@ -790,10 +882,10 @@ function buildShopOnce() {
     info.innerHTML = `Tuotto: +${fmt(b.baseCps)}/s per kpl`;
 
     const btnRow = document.createElement("div");
-    btnRow.className = "btnRow";
+    btnRow.className = "row";
 
     const buyBtn = document.createElement("button");
-    buyBtn.className = "buyBtn";
+    buyBtn.className = "btnPrimary";
     buyBtn.textContent = "Osta";
     buyBtn.addEventListener("click", () => buyBuilding(b.id));
 
@@ -827,16 +919,13 @@ function setBuyMode(mode) {
   markDirty();
 }
 
-//// ======= DIRTY UI THROTTLE =======
+//// Dirty UI
 let uiDirty = true;
 function markDirty() { uiDirty = true; }
 
-//// ======= SHOP LOGIIKKA =======
+//// Buy building
 function buyBuilding(id) {
-  if (buyMode === "max") {
-    smartMaxBuy();
-    return;
-  }
+  if (buyMode === "max") { smartMaxBuy(); return; }
 
   const b = buildings.find(x => x.id === id);
   if (!b) return;
@@ -853,12 +942,11 @@ function buyBuilding(id) {
   markDirty();
 }
 
-//// ======= OFFLINE =======
+//// Offline
 function offlineCapSeconds() {
   const base = 12 * 60 * 60;
   return achievements.firstPrestige ? Math.floor(base * 1.05) : base;
 }
-
 function applyOfflineEarnings() {
   const raw = localStorage.getItem(SAVE_KEY);
   if (!raw) return;
@@ -884,9 +972,13 @@ function applyOfflineEarnings() {
   elOfflineInfo.textContent = `poissa ${fmt(secondsAway)}s → +${fmt(gained)} kolikkoa (cap ${fmt(cap)}s)`;
 }
 
-//// ======= QUEST UI RENDER (choices, cached + animation) =======
+//// Quest choices render
 let lastChoicesKey = "";
-
+function rarityClass(r) {
+  if (r === "Epic") return "tagEpic";
+  if (r === "Rare") return "tagRare";
+  return "tagCommon";
+}
 function renderQuestChoicesIfNeeded() {
   if (questState.readyAt > 0 || questState.active) {
     lastChoicesKey = "";
@@ -917,7 +1009,7 @@ function renderQuestChoicesIfNeeded() {
     meta.className = "questMeta";
 
     const tag1 = document.createElement("span");
-    tag1.className = "questTag";
+    tag1.className = "questTag " + rarityClass(q.rarity);
     tag1.textContent = `Rarity: ${q.rarity}`;
 
     const tag2 = document.createElement("span");
@@ -928,7 +1020,7 @@ function renderQuestChoicesIfNeeded() {
     meta.appendChild(tag2);
 
     const btn = document.createElement("button");
-    btn.className = "questChoiceBtn";
+    btn.className = (q.difficulty === "A") ? "btnGood" : "btnPrimary";
     btn.textContent = "Valitse tämä";
     btn.addEventListener("click", () => chooseQuest(q.id));
 
@@ -940,7 +1032,6 @@ function renderQuestChoicesIfNeeded() {
   });
 }
 
-//// ======= Next quest in -teksti =======
 function updateNextQuestText() {
   const left = cooldownLeft();
   if (questState.readyAt > 0) { elNextQuestIn.textContent = fmtTime(left); return; }
@@ -948,7 +1039,7 @@ function updateNextQuestText() {
   elNextQuestIn.textContent = "1h after claim";
 }
 
-//// ======= UI UPDATE =======
+//// UI update
 function updateUI() {
   if (!uiDirty) return;
   uiDirty = false;
@@ -978,8 +1069,8 @@ function updateUI() {
   const ms = getMilestone();
   elMilestoneText.textContent = ms.text;
   const mpct = Math.max(0, Math.min(100, (ms.goal > 0 ? (ms.cur / ms.goal) * 100 : 0)));
-  elMilestoneFill.style.width = mpct.toFixed(1) + "%";
-  elMilestoneHint.textContent = `${ms.cur}/${ms.goal} (${mpct.toFixed(0)}%) — ${ms.hint}`;
+  document.getElementById("milestoneFill").style.width = mpct.toFixed(1) + "%";
+  document.getElementById("milestoneHint").textContent = `${ms.cur}/${ms.goal} (${mpct.toFixed(0)}%) — ${ms.hint}`;
 
   const list = [];
   list.push(achievements.firstGenerator ? "✅ Ensimmäinen rakennus" : "⬜ Ensimmäinen rakennus");
@@ -1012,11 +1103,12 @@ function updateUI() {
     ref.buyBtn.disabled = !canBuy;
   }
 
-  // quest UI
+  // quest
   const left = cooldownLeft();
   updateNextQuestText();
 
-  claimQuestBtn.classList.toggle("pulse", canClaimActiveQuest());
+  const ready = canClaimActiveQuest();
+  claimQuestBtn.classList.toggle("glowReady", ready);
 
   if (questState.readyAt > 0) {
     elQuestText.textContent = "Cooldown käynnissä…";
@@ -1027,7 +1119,7 @@ function updateUI() {
     renderQuestChoicesIfNeeded();
   } else if (!questState.active) {
     elQuestText.textContent = "Valitse A (helppo) tai B (vaikea):";
-    elQuestHint.textContent = "B antaa selvästi paremman palkinnon (ja rarity voi nostaa sitä).";
+    elQuestHint.textContent = "B antaa paremman palkinnon (rarity voi nostaa sitä).";
     elQuestFill.style.width = "0%";
     elQuestCooldown.textContent = "Cooldown alkaa vasta kun lunastat";
     claimQuestBtn.disabled = true;
@@ -1040,12 +1132,11 @@ function updateUI() {
     elQuestText.textContent = `[${q.difficulty} | ${q.rarity}] ${q.title} (${fmt(p)}/${fmt(q.target)})`;
     elQuestFill.style.width = pct.toFixed(1) + "%";
     elQuestHint.textContent = `Palkinto: +${fmt(q.rewardCoins)} kolikkoa +${fmt(q.rewardSeconds)}s tuotot heti`;
-    elQuestCooldown.textContent = canClaimActiveQuest() ? "Valmis! Lunasta palkinto 👇" : "Lunasta kun valmis";
-    claimQuestBtn.disabled = !canClaimActiveQuest();
+    elQuestCooldown.textContent = ready ? "Valmis! Lunasta palkinto 👇" : "Lunasta kun valmis";
+    claimQuestBtn.disabled = !ready;
     renderQuestChoicesIfNeeded();
   }
 
-  // sound UI
   soundBtn.textContent = "Äänet: " + (soundEnabled ? "ON" : "OFF");
   soundBtn.classList.toggle("active", soundEnabled);
 }
@@ -1068,7 +1159,6 @@ function saveGame() {
     savedAt: Date.now()
   }));
 }
-
 function loadGame() {
   const raw = localStorage.getItem(SAVE_KEY);
   if (!raw) return;
@@ -1114,6 +1204,15 @@ function loadGame() {
 }
 
 //// ======= EVENTIT =======
+const elClickGain = document.getElementById("clickGain");
+const elClickCost = document.getElementById("clickCost");
+const elClickUps = document.getElementById("clickUps");
+const elPrestigePts = document.getElementById("prestigePts");
+const elPrestigeMult = document.getElementById("prestigeMult");
+const elPrestigeGain = document.getElementById("prestigeGain");
+
+function spendAndMark(amount){ return spendCoins(amount); }
+
 clickBtn.onclick = () => {
   totalClicks += 1;
   const gain = perClick * getPrestigeMultiplier();
@@ -1124,7 +1223,7 @@ clickBtn.onclick = () => {
 
 buyClickBtn.onclick = () => {
   if (coins < clickUpgradeCost) return;
-  if (!spendCoins(clickUpgradeCost)) return;
+  if (!spendAndMark(clickUpgradeCost)) return;
 
   clickUpgrades++;
   perClick++;
@@ -1158,9 +1257,7 @@ prestigeBtn.onclick = () => {
   markDirty();
 };
 
-claimQuestBtn.onclick = () => {
-  claimActiveQuest();
-};
+claimQuestBtn.onclick = () => claimActiveQuest();
 
 soundBtn.onclick = () => {
   soundEnabled = !soundEnabled;
