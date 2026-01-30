@@ -1,26 +1,25 @@
 <!doctype html>
 <html lang="fi">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Idle Clicker</title>
-
-<style>
-body { font-family: system-ui, Arial; max-width: 980px; margin: 30px auto; padding: 0 14px; }
-.card { border: 1px solid #ddd; border-radius: 14px; padding: 16px; margin: 12px 0; }
-.row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
-.big { font-size: 22px; font-weight: 800; }
-.muted { color: #666; }
-button { padding: 10px 14px; border-radius: 10px; border: 1px solid #ccc; cursor: pointer; background:#fff; }
-button:disabled { opacity:.5; }
-.shopGrid { display:grid; gap:10px; }
-.item { border:1px solid #eee; border-radius:14px; padding:12px; }
-.itemTop { display:flex; justify-content:space-between; font-weight:700; }
-.pill { border:1px solid #ddd; border-radius:999px; padding:6px 10px; }
-.pill.active { font-weight:800; }
-.pop { position:absolute; font-weight:900; animation:pop .6s ease-out forwards; }
-@keyframes pop { from{opacity:1} to{opacity:0; transform:translateY(-20px)} }
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Idle Clicker</title>
+  <style>
+    body { font-family: system-ui, Arial, sans-serif; max-width: 980px; margin: 30px auto; padding: 0 14px; }
+    .card { border: 1px solid #ddd; border-radius: 14px; padding: 16px; margin: 12px 0; }
+    .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+    .big { font-size: 22px; font-weight: 800; }
+    .muted { color: #666; }
+    button { padding: 10px 14px; border-radius: 10px; border: 1px solid #ccc; cursor: pointer; background:#fff; }
+    button:disabled { opacity:.5; cursor:not-allowed; }
+    .shopGrid { display:grid; gap:10px; }
+    .item { border:1px solid #eee; border-radius:14px; padding:12px; display:grid; gap:8px; }
+    .itemTop { display:flex; justify-content:space-between; align-items:baseline; gap:12px; flex-wrap:wrap; font-weight:900; }
+    .pillRow { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .pill { border:1px solid #ddd; border-radius:999px; padding:6px 10px; background:#fff; }
+    .pill.active { border-color:#999; font-weight:900; }
+    .small { font-size: 13px; }
+  </style>
 </head>
 
 <body>
@@ -43,4 +42,24 @@ button:disabled { opacity:.5; }
   <div class="muted">Ostettu: <span id="clickUps">0</span></div>
 </div>
 
-<div class="card
+<div class="card">
+  <div class="big">Prestige: <span id="prestigePts">0</span></div>
+  <div class="muted">Kerroin x<span id="prestigeMult">1.00</span></div>
+  <button id="prestigeBtn">Prestige (+<span id="prestigeGain">0</span>)</button>
+  <div class="muted small" style="margin-top:8px;">Balanssi: loivempi hintakasvu, helpompi prestige.</div>
+</div>
+
+<div class="card">
+  <div class="row" style="justify-content: space-between;">
+    <div>
+      <div class="big">Rakennukset</div>
+      <div class="muted small">Ostomoodi vaikuttaa ostoonappiin (x1 / x10 / Max).</div>
+    </div>
+    <div class="pillRow">
+      <button class="pill active" id="mode1">x1</button>
+      <button class="pill" id="mode10">x10</button>
+      <button class="pill" id="modeMax">Max</button>
+    </div>
+  </div>
+
+  <div id="shop" class="shopGrid">
