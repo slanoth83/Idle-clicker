@@ -64,38 +64,43 @@
     button{
       padding: 12px 14px; border-radius: 14px; border: 1px solid rgba(255,255,255,.14);
       cursor: pointer; background: rgba(255,255,255,.06); color: var(--text);
-      font-weight: 850; transition: transform .08s ease, background .15s ease;
+      font-weight: 850; transition: all .1s ease;
     }
-    button:hover:not(:disabled){ background: rgba(255,255,255,0.1); }
+    button:hover:not(:disabled){ background: rgba(255,255,255,.12); transform: translateY(-1px); }
     button:active:not(:disabled){ transform: translateY(1px) scale(.98); }
     button:disabled{ opacity: .4; cursor: not-allowed; }
 
-    .btnPrimary{ background: linear-gradient(180deg, rgba(124,58,237,.9), rgba(124,58,237,.65)); }
-    .btnGood{ background: linear-gradient(180deg, rgba(34,197,94,.9), rgba(34,197,94,.65)); }
-    .btnWarn{ background: linear-gradient(180deg, rgba(245,158,11,.9), rgba(245,158,11,.62)); }
-    .btnDanger{ background: linear-gradient(180deg, rgba(239,68,68,.9), rgba(239,68,68,.62)); }
+    .btnPrimary{ background: var(--accent); }
+    .btnGood{ background: var(--accent2); color: #000; }
+    .btnWarn{ background: var(--warn); color: #000; }
+    .btnDanger{ background: var(--danger); }
 
     .shopGrid{ display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin-top: 12px; }
     .item{
       border: 1px solid var(--border); border-radius: var(--radius); padding: 16px;
-      background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.025));
-      display: flex; flex-direction: column; gap: 8px;
+      background: rgba(255,255,255,0.03); display: flex; flex-direction: column; gap: 8px;
     }
 
-    .pill{ border: 1px solid rgba(255,255,255,.14); border-radius: 999px; padding: 8px 12px; background: rgba(255,255,255,.06); }
-    .pill.active{ border-color: var(--rare); background: rgba(56,189,248,.15); }
+    .pill{ border-radius: 999px; padding: 6px 14px; font-size: 13px; }
+    .pill.active{ background: var(--rare); color: #000; border-color: var(--rare); }
 
-    .progressBar{ height: 10px; border-radius: 999px; background: rgba(255,255,255,.08); overflow:hidden; margin: 10px 0; }
+    .progressBar{ height: 10px; border-radius: 999px; background: rgba(255,255,255,.08); overflow:hidden; margin: 8px 0; }
     .progressFill{ height:100%; width:0%; background: linear-gradient(90deg, var(--rare), var(--accent)); transition: width 0.3s ease; }
 
-    .pop{ position:absolute; pointer-events:none; font-weight: 950; animation: popAnim 0.7s ease-out forwards; text-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+    .pop{ position:absolute; pointer-events:none; font-weight: 950; animation: popAnim 0.7s ease-out forwards; color: var(--accent2); }
     @keyframes popAnim{ 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-40px); } }
 
     .questChoice{ border: 1px solid var(--border); padding: 12px; border-radius: 12px; background: rgba(255,255,255,0.03); }
     .tagCommon{ color: var(--common); } .tagRare{ color: var(--rare); } .tagEpic{ color: var(--epic); }
+
+    #fxCanvas{ position: fixed; inset: 0; pointer-events: none; z-index: 999; }
   </style>
 </head>
 <body>
+
+<canvas id="fxCanvas"></canvas>
+
+<h1>Idle Clicker Pro</h1>
 
 <div class="card">
   <div class="big">Kolikot: <span id="coins">0</span></div>
@@ -105,11 +110,13 @@
   </div>
 </div>
 
-<div class="card row" style="position:relative;">
-  <button id="clickBtn" class="btnGood" style="padding: 16px 32px;">Klikkaa +<span id="clickGain">1</span></button>
-  <button id="buyClickBtn" class="btnPrimary">Päivitä Klikkaus (hinta <span id="clickCost">25</span>)</button>
+<div class="card row">
+  <div style="position:relative; display:inline-block;" id="clickArea">
+    <button id="clickBtn" class="btnGood" style="padding: 20px 40px; font-size: 1.2rem;">KLIKKAA!</button>
+    <div id="popContainer"></div>
+  </div>
+  <button id="buyClickBtn" class="btnPrimary">Päivitä Klikkaus (<span id="clickCost">25</span>)</button>
   <div class="muted small">Tasot: <span id="clickUps">0</span></div>
-  <div id="popContainer" style="position:absolute; top:0; left:50px; pointer-events:none;"></div>
 </div>
 
 <div class="card">
@@ -117,7 +124,7 @@
     <div class="big">Questi</div>
     <div id="questCooldown" class="muted small"></div>
   </div>
-  <div id="questText" class="muted">-</div>
+  <div id="questText" style="margin-top:8px">Valitse tehtävä alta...</div>
   <div class="progressBar"><div class="progressFill" id="questFill"></div></div>
   <div id="questHint" class="muted small">-</div>
   <div id="questChoicesWrap" class="shopGrid"></div>
@@ -126,19 +133,17 @@
 
 <div class="card">
   <div class="row" style="justify-content: space-between;">
-    <div>
-      <div class="big">Kauppa</div>
-      <div class="muted small">Avaa uusia tier-tasoja ostamalla 10 edellistä.</div>
-    </div>
+    <div class="big">Kauppa</div>
     <div class="row">
-      <button class="pill active" id="buyMode1">x1</button>
-      <button class="pill" id="buyMode10">x10</button>
+      <button class="pill active" id="btnX1">x1</button>
+      <button class="pill" id="btnX10">x10</button>
+      <button class="pill" id="btnMax">MAX</button>
     </div>
   </div>
-  <div id="tierBox" class="card" style="background: rgba(245,158,11,0.05); border-color: rgba(245,158,11,0.3); display:none;">
+  <div id="tierBox" class="card" style="background: rgba(245,158,11,0.1); border-color: var(--warn); display:none;">
     <div class="row" style="justify-content: space-between;">
       <div>
-        <div id="tierUnlockTitle" style="font-weight:900">Uusi Rakennus!</div>
+        <div id="tierUnlockTitle" font-weight:bold>Avaa uusi rakennus</div>
         <div id="tierUnlockHint" class="small muted"></div>
       </div>
       <button id="buyTierBtn" class="btnWarn">Avaa (<span id="tierUnlockCost">0</span>)</button>
@@ -147,47 +152,41 @@
   <div id="shopGrid" class="shopGrid"></div>
 </div>
 
-<div class="card">
-  <div class="row" style="justify-content: space-between;">
-    <div>
-      <div class="big">Prestige: <span id="prestigePts">0</span> pts</div>
-      <div class="muted small">Kerroin: x<span id="prestigeMult">1.00</span></div>
-    </div>
-    <button id="prestigeBtn" class="btnPrimary">Prestige (saat <span id="prestigeGain">0</span>)</button>
+<div class="card row">
+  <div>
+    <div class="big">Prestige: <span id="prestigePts">0</span></div>
+    <div class="muted small">Kerroin: x<span id="prestigeMult">1.00</span></div>
   </div>
-</div>
-
-<div class="row" style="justify-content: center; margin-top: 20px;">
-  <button id="saveBtn">Save</button>
-  <button id="resetBtn" class="btnDanger">Reset</button>
+  <button id="prestigeBtn" class="btnPrimary">Prestige (saat +<span id="prestigeGain">0</span>)</button>
+  <button id="saveBtn">Tallenna</button>
+  <button id="resetBtn" class="btnDanger">Nollaa peli</button>
 </div>
 
 <script>
 (() => {
   "use strict";
 
-  // --- MUUTTUJAT ---
   let coins = 0;
   let perClick = 1;
+  let clickUpgrades = 0;
   let clickUpgradeCost = 25;
   let prestigePoints = 0;
   let totalClicks = 0;
   let lifetimeEarned = 0;
-  let buyMode = 1;
+  let buyMode = "x1";
   let manualUnlocked = {};
   
   let buildings = [
     { id: "b1", name: "Klikkeri", baseCost: 15, baseCps: 1, owned: 0 },
-    { id: "b2", name: "Työpaja", baseCost: 120, baseCps: 8, owned: 0 },
-    { id: "b3", name: "Tehdas", baseCost: 1400, baseCps: 45, owned: 0 },
-    { id: "b4", name: "Voimala", baseCost: 18000, baseCps: 200, owned: 0 },
-    { id: "b5", name: "Pörssi", baseCost: 200000, baseCps: 1200, owned: 0 }
+    { id: "b2", name: "Työpaja", baseCost: 150, baseCps: 8, owned: 0 },
+    { id: "b3", name: "Tehdas", baseCost: 1500, baseCps: 45, owned: 0 },
+    { id: "b4", name: "Voimala", baseCost: 12000, baseCps: 200, owned: 0 },
+    { id: "b5", name: "Pörssi", baseCost: 150000, baseCps: 1200, owned: 0 }
   ];
 
   let questState = { active: null, choices: null, readyAt: 0 };
-  const SAVE_KEY = "idle_pro_v2_smooth";
+  const SAVE_KEY = "idle_pro_save_v1";
 
-  // --- APU ---
   const fmt = n => n >= 1000000 ? (n/1000000).toFixed(2) + "M" : n >= 1000 ? (n/1000).toFixed(1) + "k" : Math.floor(n);
   const getMult = () => 1 + (prestigePoints * 0.05);
   const getCps = () => buildings.reduce((s, b) => s + (b.owned * b.baseCps), 0);
@@ -199,77 +198,67 @@
     return buildings[idx-1].owned >= 10;
   }
 
-  // --- KAUPAN ALUSTUS (Estää säkenöinnin) ---
+  // ALUSTETAAN KAUPPA KERRAN (Poistaa säkenöinnin)
   const initShop = () => {
     const grid = document.getElementById("shopGrid");
     grid.innerHTML = "";
     buildings.forEach(b => {
       const div = document.createElement("div");
       div.className = "item";
-      div.id = `shop-item-${b.id}`;
+      div.id = `item-container-${b.id}`;
       div.style.display = "none";
       div.innerHTML = `
-        <div class="row" style="justify-content:space-between">
-          <b id="name-${b.id}">${b.name}</b>
-          <span id="owned-${b.id}" class="chip">0</span>
-        </div>
-        <div class="muted small" id="info-${b.id}">+0/s</div>
-        <button id="btn-buy-${b.id}" onclick="window.gameBuy('${b.id}')">Osta</button>
+        <div class="row" style="justify-content:space-between"><b id="name-${b.id}">${b.name}</b> <span id="owned-${b.id}">0</span></div>
+        <div class="small muted" id="cps-${b.id}">0/s</div>
+        <button id="buy-btn-${b.id}" onclick="window.buyB('${b.id}')">Osta</button>
       `;
       grid.appendChild(div);
     });
   };
 
-  // --- PÄIVITYS ---
   function updateUI() {
     const mult = getMult();
     document.getElementById("coins").textContent = fmt(coins);
     document.getElementById("perClick").textContent = fmt(perClick * mult);
     document.getElementById("perSec").textContent = fmt(getCps() * mult);
-    document.getElementById("clickGain").textContent = fmt(perClick * mult);
     document.getElementById("clickCost").textContent = fmt(clickUpgradeCost);
-    document.getElementById("clickUps").textContent = perClick - 1;
+    document.getElementById("clickUps").textContent = clickUpgrades;
     document.getElementById("prestigePts").textContent = prestigePoints;
     document.getElementById("prestigeMult").textContent = mult.toFixed(2);
     document.getElementById("prestigeGain").textContent = Math.floor(Math.sqrt(lifetimeEarned / 10000));
 
-    // Kauppa - Älykäs päivitys
     buildings.forEach((b, idx) => {
-      const el = document.getElementById(`shop-item-${b.id}`);
+      const container = document.getElementById(`item-container-${b.id}`);
       if (isUnlocked(idx)) {
-        el.style.display = "flex";
-        const cost = costOfN(b, buyMode);
+        container.style.display = "flex";
+        const count = buyMode === "x10" ? 10 : 1;
+        const cost = buyMode === "max" ? costOfN(b, 1) : costOfN(b, count);
         document.getElementById(`owned-${b.id}`).textContent = b.owned;
-        document.getElementById(`info-${b.id}`).textContent = `+${fmt(b.baseCps * mult)}/s`;
-        const btn = document.getElementById(`btn-buy-${b.id}`);
-        btn.textContent = `Osta x${buyMode} (${fmt(cost)})`;
+        document.getElementById(`cps-${b.id}`).textContent = fmt(b.baseCps * mult) + "/s";
+        const btn = document.getElementById(`buy-btn-${b.id}`);
+        btn.textContent = `Osta ${buyMode} (${fmt(cost)})`;
         btn.disabled = coins < cost;
       } else {
-        el.style.display = "none";
+        container.style.display = "none";
       }
     });
 
-    // Tier Unlock
     const nextIdx = buildings.findIndex((_, i) => !isUnlocked(i));
     const tBox = document.getElementById("tierBox");
-    if (nextIdx !== -1 && nextIdx > 0) {
+    if (nextIdx !== -1) {
       tBox.style.display = "block";
-      const cost = buildings[nextIdx].baseCost * 3;
-      document.getElementById("tierUnlockHint").textContent = `Tai osta 10 kpl: ${buildings[nextIdx-1].name}`;
+      const cost = buildings[nextIdx].baseCost * 2;
+      document.getElementById("tierUnlockTitle").textContent = `Avaa ${buildings[nextIdx].name}`;
+      document.getElementById("tierUnlockHint").textContent = `Tarvitset 10kpl: ${buildings[nextIdx-1].name}`;
       document.getElementById("tierUnlockCost").textContent = fmt(cost);
-      document.getElementById("buyTierBtn").disabled = coins < cost;
       document.getElementById("buyTierBtn").onclick = () => {
         if (coins >= cost) { coins -= cost; manualUnlocked[buildings[nextIdx].id] = true; updateUI(); }
       };
     } else { tBox.style.display = "none"; }
 
-    updateQuestUI();
-  }
-
-  function updateQuestUI() {
     const qWrap = document.getElementById("questChoicesWrap");
     if (questState.active) {
-      qWrap.style.display = "none";
+      qWrap.innerHTML = "";
       const q = questState.active;
       let prog = q.type === "click" ? (totalClicks - q.baseline) : (lifetimeEarned - q.baseline);
       let perc = Math.min(100, (prog / q.target) * 100);
@@ -277,50 +266,38 @@
       document.getElementById("questFill").style.width = perc + "%";
       document.getElementById("questHint").textContent = `${fmt(prog)} / ${fmt(q.target)}`;
       document.getElementById("claimQuestBtn").disabled = prog < q.target;
-      document.getElementById("claimQuestBtn").style.display = "block";
+    } else if (Date.now() < questState.readyAt) {
+      qWrap.innerHTML = "";
+      document.getElementById("questText").textContent = "Odotetaan uusia tehtäviä...";
+      document.getElementById("questCooldown").textContent = Math.ceil((questState.readyAt - Date.now())/1000) + "s";
     } else {
-      document.getElementById("claimQuestBtn").style.display = "none";
-      if (Date.now() < questState.readyAt) {
-        qWrap.style.display = "none";
-        document.getElementById("questText").textContent = "Uudet tehtävät valmistuvat...";
-        document.getElementById("questCooldown").textContent = Math.ceil((questState.readyAt - Date.now())/1000) + "s";
-        document.getElementById("questFill").style.width = "0%";
-      } else {
-        qWrap.style.display = "grid";
-        document.getElementById("questText").textContent = "Valitse haaste:";
-        if (!questState.choices) generateQuests();
-        renderQuestChoices();
-      }
+      if (!questState.choices) generateQuests();
+      qWrap.innerHTML = "";
+      questState.choices.forEach(c => {
+        const d = document.createElement("div");
+        d.className = "questChoice";
+        d.innerHTML = `<div class="tag${c.rarity}">${c.rarity}</div><div>${c.title}</div><button onclick="startQ(${c.id})">Valitse</button>`;
+        qWrap.appendChild(d);
+      });
     }
   }
 
   function generateQuests() {
     const cps = Math.max(1, getCps());
     questState.choices = [
-      { id: 1, title: `Klikkaa 50 kertaa`, type: "click", target: 50, reward: cps * 150, rarity: "Common" },
-      { id: 2, title: `Kerää ${fmt(cps*300)} kolikkoa`, type: "earn", target: cps*300, reward: cps * 500, rarity: "Rare" }
+      { id: Math.random(), title: `Klikkaa 50 kertaa`, type: "click", target: 50, reward: cps * 100, rarity: "Common" },
+      { id: Math.random(), title: `Kerää ${fmt(cps*200)} kolikkoa`, type: "earn", target: cps*200, reward: cps * 300, rarity: "Rare" }
     ];
   }
 
-  function renderQuestChoices() {
-    const wrap = document.getElementById("questChoicesWrap");
-    wrap.innerHTML = "";
-    questState.choices.forEach(c => {
-      const d = document.createElement("div");
-      d.className = "questChoice";
-      d.innerHTML = `<div class="tag${c.rarity}" style="font-weight:900">${c.rarity}</div><div class="small">${c.title}</div><button onclick="window.startQuest(${c.id})" style="margin-top:8px; padding:4px 8px; font-size:11px">Valitse</button>`;
-      wrap.appendChild(d);
-    });
-  }
-
-  // --- TOIMINNOT ---
-  window.gameBuy = (id) => {
+  window.buyB = (id) => {
     const b = buildings.find(x => x.id === id);
-    const cost = costOfN(b, buyMode);
-    if (coins >= cost) { coins -= cost; b.owned += buyMode; updateUI(); }
+    const count = buyMode === "x10" ? 10 : 1;
+    const cost = costOfN(b, count);
+    if (coins >= cost) { coins -= cost; b.owned += count; updateUI(); }
   };
 
-  window.startQuest = (id) => {
+  window.startQ = (id) => {
     questState.active = questState.choices.find(c => c.id === id);
     questState.active.baseline = questState.active.type === "click" ? totalClicks : lifetimeEarned;
     updateUI();
@@ -329,11 +306,9 @@
   document.getElementById("clickBtn").onclick = (e) => {
     const gain = perClick * getMult();
     coins += gain; lifetimeEarned += gain; totalClicks++;
-    
     const pop = document.createElement("div");
     pop.className = "pop"; pop.textContent = "+" + fmt(gain);
-    pop.style.left = e.clientX + "px"; pop.style.top = e.clientY + "px";
-    pop.style.color = "var(--accent2)";
+    pop.style.left = e.clientX - 50 + "px"; pop.style.top = e.clientY - 50 + "px";
     document.body.appendChild(pop);
     setTimeout(() => pop.remove(), 700);
     updateUI();
@@ -341,7 +316,7 @@
 
   document.getElementById("buyClickBtn").onclick = () => {
     if (coins >= clickUpgradeCost) {
-      coins -= clickUpgradeCost; perClick++;
+      coins -= clickUpgradeCost; clickUpgrades++; perClick++;
       clickUpgradeCost = Math.ceil(clickUpgradeCost * 1.6);
       updateUI();
     }
@@ -350,52 +325,44 @@
   document.getElementById("claimQuestBtn").onclick = () => {
     coins += questState.active.reward;
     questState.active = null; questState.choices = null;
-    questState.readyAt = Date.now() + 15000;
+    questState.readyAt = Date.now() + 30000;
     updateUI();
   };
 
-  document.getElementById("buyMode1").onclick = () => { buyMode = 1; updatePills(); };
-  document.getElementById("buyMode10").onclick = () => { buyMode = 10; updatePills(); };
-  function updatePills() {
-    document.getElementById("buyMode1").classList.toggle("active", buyMode === 1);
-    document.getElementById("buyMode10").classList.toggle("active", buyMode === 10);
+  document.getElementById("btnX1").onclick = () => { buyMode="x1"; setPill("btnX1"); };
+  document.getElementById("btnX10").onclick = () => { buyMode="x10"; setPill("btnX10"); };
+  document.getElementById("btnMax").onclick = () => { buyMode="max"; setPill("btnMax"); };
+  function setPill(id) {
+    document.querySelectorAll(".pill").forEach(p => p.classList.remove("active"));
+    document.getElementById(id).classList.add("active");
     updateUI();
   }
-
-  document.getElementById("prestigeBtn").onclick = () => {
-    const gain = Math.floor(Math.sqrt(lifetimeEarned / 10000));
-    if (gain < 1) return alert("Tarvitset enemmän tuloja (10k+) prestigeen!");
-    if (confirm("Prestige nollaa etenemisen, mutta saat pysyvän bonuksen. Jatka?")) {
-      prestigePoints += gain; coins = 0; lifetimeEarned = 0;
-      buildings.forEach(b => b.owned = 0);
-      perClick = 1; clickUpgradeCost = 25; manualUnlocked = {};
-      save(); location.reload();
-    }
-  };
 
   function save() {
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ coins, perClick, clickUpgradeCost, prestigePoints, buildings, manualUnlocked, lifetimeEarned, totalClicks }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ coins, perClick, clickUpgrades, clickUpgradeCost, prestigePoints, buildings, manualUnlocked, lifetimeEarned, totalClicks, questState }));
   }
   function load() {
-    const s = localStorage.getItem(SAVE_KEY);
-    if (s) {
-      const d = JSON.parse(s);
-      coins = d.coins; perClick = d.perClick; clickUpgradeCost = d.clickUpgradeCost;
-      prestigePoints = d.prestigePoints; buildings = d.buildings; manualUnlocked = d.manualUnlocked || {};
-      lifetimeEarned = d.lifetimeEarned; totalClicks = d.totalClicks;
+    const saved = localStorage.getItem(SAVE_KEY);
+    if (saved) {
+      const d = JSON.parse(saved);
+      coins = d.coins; perClick = d.perClick; clickUpgrades = d.clickUpgrades;
+      clickUpgradeCost = d.clickUpgradeCost; prestigePoints = d.prestigePoints;
+      buildings = d.buildings; manualUnlocked = d.manualUnlocked || {};
+      lifetimeEarned = d.lifetimeEarned || 0; totalClicks = d.totalClicks || 0;
+      questState = d.questState || questState;
     }
   }
 
   document.getElementById("saveBtn").onclick = save;
-  document.getElementById("resetBtn").onclick = () => { if(confirm("Nollaa kaikki?")) { localStorage.clear(); location.reload(); }};
+  document.getElementById("resetBtn").onclick = () => { if(confirm("Nollaa peli?")) { localStorage.clear(); location.reload(); }};
 
   initShop();
   load();
   setInterval(() => {
     const sGain = (getCps() * getMult()) / 10;
     coins += sGain; lifetimeEarned += sGain;
+    updateUI();
   }, 100);
-  setInterval(updateUI, 200); // UI päivittyy 5 kertaa sekunnissa - ei välky, mutta tuntuu nopealta.
 
 })();
 </script>
