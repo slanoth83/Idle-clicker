@@ -226,7 +226,7 @@
     .tagRare{ border-color: rgba(56,189,248,.55); color: var(--rare); }
     .tagEpic{ border-color: rgba(192,132,252,.55); color: var(--epic); }
 
-    /* ✅ Quest choices vierekkäin desktop */
+    /* Quest choices vierekkäin desktop */
     .questChoicesWrap{
       margin-top: 12px;
       display:grid;
@@ -332,7 +332,7 @@
       z-index: 999;
     }
 
-    /* Tier unlock box + actions row */
+    /* Tier unlock box */
     .tierBox{
       margin-top: 10px;
       border: 1px solid rgba(255,255,255,.12);
@@ -389,9 +389,15 @@
   <div class="muted">Ostettu: <span id="clickUps">0</span></div>
 </div>
 
+<!-- ✅ Klikkaus-rivi: Klikkaa | Save | Prestige | Reset -->
 <div class="card row popLayer">
   <button id="clickBtn" class="btnGood">Klikkaa +<span id="clickGain">1</span></button>
   <button id="saveBtn">Save</button>
+
+  <button id="prestigeBtn" class="btnPrimary">
+    Prestige (saat <span id="prestigeGain">0</span>)
+  </button>
+
   <button id="resetBtn" class="btnDanger">Reset</button>
   <div id="popContainer"></div>
 </div>
@@ -424,18 +430,15 @@
     <div>Next quest in: <span id="nextQuestIn">-</span></div>
   </div>
 
-  <!-- ✅ vierekkäin grid -->
   <div id="questChoicesWrap" class="questChoicesWrap"></div>
 </div>
 
 <div class="card">
   <div class="big">Prestige: <span id="prestigePts">0</span> pts</div>
   <div class="muted">Kerroin: x<span id="prestigeMult">1.00</span></div>
+  <button disabled style="display:none"></button>
   <div class="muted small" style="margin-top:8px;">
     Balanssi: saat prestige-pisteitä noin <b>5k</b> kolikon välein (nousee hitaasti), ja jokainen piste antaa <b>+4%</b>.
-  </div>
-  <div class="muted small" style="margin-top:8px;">
-    Prestige-nappi on Kaupan “Toiminnot”-rivillä.
   </div>
 </div>
 
@@ -454,7 +457,7 @@
     </div>
   </div>
 
-  <!-- ✅ Tier unlock + Prestige samalla rivillä -->
+  <!-- ✅ Tier unlock: Prestige poistettu tästä -->
   <div class="tierBox" id="tierBox">
     <div class="tierLeft">
       <div class="tierTitle" id="tierUnlockTitle">-</div>
@@ -462,12 +465,7 @@
     </div>
     <div class="tierRight">
       <span class="chip">Hinta: <span id="tierUnlockCost">-</span></span>
-
       <button id="buyTierBtn" class="btnWarn btnWide">Avaa seuraava tier</button>
-
-      <button id="prestigeBtn" class="btnPrimary btnWide">
-        Prestige (saat <span id="prestigeGain">0</span>)
-      </button>
     </div>
   </div>
 
@@ -518,7 +516,7 @@ let achievements = {
 };
 let lastAchMessage = "";
 
-const SAVE_KEY = "idle_clicker_v15_uirow_tierbutton_prestigereset";
+const SAVE_KEY = "idle_clicker_v16_move_prestige_confirm_reset";
 
 let autosaveId = null;
 let idleTickId = null;
@@ -537,7 +535,7 @@ let buildings = [
   { id: "b6", name: "Avaruusasema",  baseCost: 4000000,   baseCps: 42000,    owned: 0 },
 ];
 
-// ✅ Manual tier unlockit (ostamalla avattu)
+// Manual tier unlockit (ostamalla avattu)
 let manualUnlocked = {}; // { b2:true, b3:true ... }
 
 //// ======= TIER-LOCK =======
@@ -546,55 +544,45 @@ function buildingIndexById(id) { return buildings.findIndex(b => b.id === id); }
 function isUnlockedIndex(i) {
   if (i <= 0) return true;
   const id = buildings[i]?.id;
-  if (id && manualUnlocked[id]) return true;        // ✅ ostettu unlock
-  return (buildings[i - 1]?.owned || 0) >= 10;      // tai 10 kpl edellisestä
+  if (id && manualUnlocked[id]) return true;
+  return (buildings[i - 1]?.owned || 0) >= 10;
 }
 function isUnlockedId(id) {
   const i = buildingIndexById(id);
   if (i < 0) return false;
   return isUnlockedIndex(i);
 }
-
 function nextLockedIndex() {
   for (let i = 1; i < buildings.length; i++) {
     if (!isUnlockedIndex(i)) return i;
   }
   return -1;
 }
-
-// Hinta: riippuu siitä paljonko puuttuu 10:stä (kalliimpi jos avaat "aikaisin")
 function calcTierUnlockCost(nextIdx) {
   if (nextIdx < 1) return 0;
   const prev = buildings[nextIdx - 1];
   const next = buildings[nextIdx];
   const missing = Math.max(0, 10 - (prev.owned || 0)); // 0..10
-
   const base = next.baseCost;
   const mult = 1.4 + (missing / 10) * 0.8 + Math.min(0.6, prestigePoints * 0.02);
   return Math.ceil(base * mult);
 }
-
 function getTierUnlockInfo() {
   const idx = nextLockedIndex();
   if (idx === -1) return { done: true };
-
   const prev = buildings[idx - 1];
   const next = buildings[idx];
   const owned = prev.owned || 0;
   const remaining = Math.max(0, 10 - owned);
   const cost = calcTierUnlockCost(idx);
-
   return { done:false, idx, prevName: prev.name, nextName: next.name, owned, remaining, cost };
 }
-
 function buyNextTierUnlock() {
   const info = getTierUnlockInfo();
   if (info.done) return;
   if (!spendCoins(info.cost)) return;
-
   const id = buildings[info.idx].id;
   manualUnlocked[id] = true;
-
   SFX.buy();
   markDirty();
 }
@@ -618,7 +606,6 @@ function ensureAudio() {
   audioCtx = new Ctx();
   return audioCtx;
 }
-
 function playBeep({ freq = 440, dur = 0.07, type = "sine", vol = 0.05 } = {}) {
   const ctx = ensureAudio();
   if (!ctx) return;
@@ -655,7 +642,6 @@ function fmt(n) {
   if (!Number.isFinite(x)) return "0";
   const abs = Math.abs(x);
   if (abs < 1000) return String(Math.floor(x));
-
   const units = [
     { v: 1e12, s: "T" },
     { v: 1e9,  s: "B" },
@@ -671,7 +657,6 @@ function fmt(n) {
   }
   return String(Math.floor(x));
 }
-
 function fmtTime(secs) {
   const s = Math.max(0, Math.floor(secs));
   const h = Math.floor(s / 3600);
@@ -930,7 +915,7 @@ function chooseQuest(choiceId) {
   const picked = questState.choices.find(q => q.id === choiceId);
   if (!picked) return;
 
-  picked.baseline = makeBaseline(); // ✅ laskuri alkaa tästä
+  picked.baseline = makeBaseline();
   questState.active = picked;
   questState.choices = null;
 
@@ -1507,9 +1492,17 @@ prestigeBtn.onclick = () => {
   const gain = calcPrestigeGain();
   if (gain <= 0) return;
 
+  const ok = confirm(
+    "Prestige VAROITUS!\n\n" +
+    "Prestige resetoi:\n" +
+    "- kolikot\n- rakennukset\n- click upgradet\n- questin\n- tier-unlock ostot\n\n" +
+    `Saat ${gain} prestige-pistettä.\n\n` +
+    "Haluatko varmasti tehdä prestigén?"
+  );
+  if (!ok) return;
+
   prestigePoints += gain;
 
-  // resetoi “normaalit”
   coins = 0;
   perClick = 1;
   clickUpgrades = 0;
@@ -1517,7 +1510,7 @@ prestigeBtn.onclick = () => {
   totalClicks = 0;
   for (const b of buildings) b.owned = 0;
 
-  // ✅ B: tier unlock ostot nollataan myös
+  // tier unlock ostot nollataan
   manualUnlocked = {};
 
   elOfflineInfo.textContent = "-";
@@ -1547,6 +1540,13 @@ soundBtn.onclick = () => {
 saveBtn.onclick = () => saveGame();
 
 resetBtn.onclick = () => {
+  const ok = confirm(
+    "Reset VAROITUS!\n\n" +
+    "Tämä poistaa tallennuksen (localStorage) ja käynnistää pelin alusta.\n\n" +
+    "Haluatko varmasti jatkaa?"
+  );
+  if (!ok) return;
+
   localStorage.removeItem(SAVE_KEY);
   location.reload();
 };
