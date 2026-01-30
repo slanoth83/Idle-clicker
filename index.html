@@ -253,6 +253,44 @@
       animation: bump 240ms ease-out both;
     }
 
+    /* Cooldown ring */
+    .nextRow{
+      display:flex;
+      gap: 10px;
+      align-items:center;
+      margin-top: 6px;
+    }
+    .ringWrap{
+      width: 26px;
+      height: 26px;
+      display:grid;
+      place-items:center;
+      border-radius: 999px;
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.10);
+      box-shadow: 0 10px 24px rgba(0,0,0,.22);
+    }
+    .ringSvg{
+      width: 22px;
+      height: 22px;
+      display:block;
+    }
+    .ringTrack{
+      stroke: rgba(255,255,255,.12);
+      stroke-width: 3.5;
+      fill: none;
+    }
+    .ringProg{
+      stroke: rgba(56,189,248,.95);
+      stroke-width: 3.5;
+      fill: none;
+      stroke-linecap: round;
+      transform: rotate(-90deg);
+      transform-origin: 50% 50%;
+      transition: stroke-dashoffset 180ms linear, stroke 180ms linear;
+      filter: drop-shadow(0 0 6px rgba(56,189,248,.25));
+    }
+
     /* READY toast */
     .toast{
       position: fixed;
@@ -288,6 +326,20 @@
       height: 100vh;
       pointer-events: none;
       z-index: 999;
+    }
+
+    /* Screen shake (Epic only) */
+    @keyframes shake{
+      0% { transform: translate(0,0); }
+      15% { transform: translate(-4px, 2px); }
+      30% { transform: translate(4px, -3px); }
+      45% { transform: translate(-3px, -2px); }
+      60% { transform: translate(3px, 2px); }
+      75% { transform: translate(-2px, 1px); }
+      100% { transform: translate(0,0); }
+    }
+    body.shake{
+      animation: shake 320ms ease-out;
     }
 
     @media (max-width: 640px){
@@ -351,8 +403,16 @@
     <div class="muted small" id="questCooldown">-</div>
   </div>
 
-  <div class="muted small" style="margin-top:6px;">
-    Next quest in: <span id="nextQuestIn">-</span>
+  <div class="nextRow muted small">
+    <div class="ringWrap" title="Cooldown progress">
+      <svg class="ringSvg" viewBox="0 0 36 36" aria-hidden="true">
+        <circle class="ringTrack" cx="18" cy="18" r="14"></circle>
+        <circle class="ringProg" id="cooldownRing" cx="18" cy="18" r="14"></circle>
+      </svg>
+    </div>
+    <div>
+      Next quest in: <span id="nextQuestIn">-</span>
+    </div>
   </div>
 
   <div id="questChoicesWrap" style="margin-top:12px; display:grid; gap:10px;"></div>
@@ -429,7 +489,7 @@ let achievements = {
 };
 let lastAchMessage = "";
 
-const SAVE_KEY = "idle_clicker_v11_quest_anim_fx";
+const SAVE_KEY = "idle_clicker_v12_ring_rarity_shake";
 
 let autosaveId = null;
 let idleTickId = null;
@@ -776,10 +836,14 @@ function claimActiveQuest() {
   SFX.claim();
   markDirty();
 
-  // FX: claim confetti
+  // FX: claim confetti (rarity palette)
   const rect = claimQuestBtn.getBoundingClientRect();
-  confettiBurst(rect.left + rect.width * 0.5, rect.top + rect.height * 0.3, 120);
-  spawnToast("🎉 REWARD CLAIMED!");
+  confettiBurst(rect.left + rect.width * 0.5, rect.top + rect.height * 0.3, q.rarity === "Epic" ? 180 : q.rarity === "Rare" ? 140 : 110, paletteForRarity(q.rarity));
+
+  // Epic-only screen shake
+  if (q.rarity === "Epic") screenShake();
+
+  spawnToast(q.rarity === "Epic" ? "💥 EPIC REWARD CLAIMED!" : "🎉 REWARD CLAIMED!");
 }
 function cooldownLeft() {
   if (!questState.readyAt) return 0;
@@ -843,17 +907,34 @@ const questChoicesWrap = document.getElementById("questChoicesWrap");
 const soundBtn = document.getElementById("soundBtn");
 const readyToast = document.getElementById("readyToast");
 
+// ring
+const cooldownRing = document.getElementById("cooldownRing");
+const RING_R = 14;
+const RING_C = 2 * Math.PI * RING_R;
+
+cooldownRing.style.strokeDasharray = String(RING_C);
+cooldownRing.style.strokeDashoffset = String(RING_C);
+
 //// ======= FX: Toast =======
 let toastTimer = null;
 function spawnToast(text) {
   if (!readyToast) return;
   readyToast.textContent = text;
   readyToast.classList.remove("show");
-  // reflow
   void readyToast.offsetWidth;
   readyToast.classList.add("show");
   if (toastTimer) clearTimeout(toastTimer);
   toastTimer = setTimeout(() => readyToast.classList.remove("show"), 1400);
+}
+
+//// ======= FX: Screen shake (Epic) =======
+let shakeTimer = null;
+function screenShake() {
+  document.body.classList.remove("shake");
+  void document.body.offsetWidth;
+  document.body.classList.add("shake");
+  if (shakeTimer) clearTimeout(shakeTimer);
+  shakeTimer = setTimeout(() => document.body.classList.remove("shake"), 380);
 }
 
 //// ======= FX: Confetti =======
@@ -873,17 +954,48 @@ resizeFx();
 function rand(a,b){ return a + Math.random()*(b-a); }
 function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
 
-function confettiBurst(xCss, yCss, count = 90) {
-  // xCss/yCss are in CSS pixels -> convert to device pixels
+function paletteForRarity(rarity) {
+  if (rarity === "Epic") {
+    return [
+      "rgba(192,132,252,0.98)",
+      "rgba(124,58,237,0.98)",
+      "rgba(56,189,248,0.95)",
+      "rgba(245,158,11,0.92)",
+      "rgba(255,255,255,0.92)",
+    ];
+  }
+  if (rarity === "Rare") {
+    return [
+      "rgba(56,189,248,0.98)",
+      "rgba(34,197,94,0.92)",
+      "rgba(124,58,237,0.92)",
+      "rgba(255,255,255,0.9)",
+    ];
+  }
+  // Common
+  return [
+    "rgba(148,163,184,0.98)",
+    "rgba(56,189,248,0.75)",
+    "rgba(255,255,255,0.85)",
+  ];
+}
+
+function ringColorForRarity(rarity) {
+  if (rarity === "Epic") return "rgba(192,132,252,0.95)";
+  if (rarity === "Rare") return "rgba(56,189,248,0.95)";
+  return "rgba(148,163,184,0.95)";
+}
+
+function confettiBurst(xCss, yCss, count = 90, colors = null) {
   const x = xCss * devicePixelRatio;
   const y = yCss * devicePixelRatio;
 
-  const colors = [
-    "rgba(56,189,248,0.95)",   // rare
-    "rgba(124,58,237,0.95)",   // accent
-    "rgba(34,197,94,0.95)",    // green
-    "rgba(245,158,11,0.95)",   // amber
-    "rgba(192,132,252,0.95)",  // epic
+  const palette = Array.isArray(colors) && colors.length ? colors : [
+    "rgba(56,189,248,0.95)",
+    "rgba(124,58,237,0.95)",
+    "rgba(34,197,94,0.95)",
+    "rgba(245,158,11,0.95)",
+    "rgba(192,132,252,0.95)",
     "rgba(255,255,255,0.9)"
   ];
 
@@ -898,7 +1010,7 @@ function confettiBurst(xCss, yCss, count = 90) {
       w: rand(6, 12) * devicePixelRatio,
       h: rand(3, 8) * devicePixelRatio,
       life: rand(55, 95),
-      color: pick(colors),
+      color: pick(palette),
       alpha: 1
     });
   }
@@ -1136,11 +1248,38 @@ function setNextQuestTextAnimated(text) {
   elNextQuestIn.classList.add("countBump");
 }
 
-function updateNextQuestText() {
+function setRingProgress(pct01, rarityHint) {
+  const p = Math.max(0, Math.min(1, pct01));
+  const offset = RING_C * (1 - p);
+  cooldownRing.style.strokeDashoffset = String(offset);
+
+  const r = rarityHint || "Common";
+  cooldownRing.style.stroke = ringColorForRarity(r);
+}
+
+function updateNextQuestTextAndRing() {
   const left = cooldownLeft();
-  if (questState.readyAt > 0) { setNextQuestTextAnimated(fmtTime(left)); return; }
-  if (!questState.active) { setNextQuestTextAnimated("now"); return; }
+
+  if (questState.readyAt > 0) {
+    setNextQuestTextAnimated(fmtTime(left));
+    const p = 1 - (left / QUEST_COOLDOWN);
+    setRingProgress(p, "Rare"); // cooldown ring: neutraali (rare-blue)
+    return;
+  }
+
+  if (!questState.active) {
+    setNextQuestTextAnimated("now");
+    setRingProgress(1, "Common");
+    return;
+  }
+
   setNextQuestTextAnimated("1h after claim");
+
+  // näytetään quest-progress ring myös aktiivisessa (nice extra):
+  const q = questState.active;
+  const prog = activeQuestProgress(q);
+  const pct = q.target > 0 ? (prog / q.target) : 0;
+  setRingProgress(pct, q.rarity);
 }
 
 let wasQuestReady = false;
@@ -1208,25 +1347,25 @@ function updateUI() {
     ref.buyBtn.disabled = !canBuy;
   }
 
-  updateNextQuestText();
+  updateNextQuestTextAndRing();
 
   const ready = canClaimActiveQuest();
   claimQuestBtn.classList.toggle("glowReady", ready);
 
-  // READY trigger once (confetti + toast + sound)
+  // READY trigger once (confetti + toast + sound) with rarity colors
   if (ready && !wasQuestReady) {
     wasQuestReady = true;
+    const qr = questState.active ? questState.active.rarity : "Rare";
     SFX.ready();
-    spawnToast("✅ QUEST READY!");
+    spawnToast(qr === "Epic" ? "💎 EPIC QUEST READY!" : qr === "Rare" ? "✨ RARE QUEST READY!" : "✅ QUEST READY!");
     const rect = claimQuestBtn.getBoundingClientRect();
-    confettiBurst(rect.left + rect.width * 0.5, rect.top + rect.height * 0.2, 90);
+    confettiBurst(rect.left + rect.width * 0.5, rect.top + rect.height * 0.2, qr === "Epic" ? 150 : qr === "Rare" ? 120 : 90, paletteForRarity(qr));
   }
   if (!ready) wasQuestReady = false;
 
   const left = cooldownLeft();
 
   if (questState.readyAt > 0) {
-    // cooldown progress (0..100)
     const pct = Math.max(0, Math.min(100, (1 - (left / QUEST_COOLDOWN)) * 100));
     elQuestFill.style.width = pct.toFixed(1) + "%";
 
@@ -1362,8 +1501,7 @@ prestigeBtn.onclick = () => {
 };
 
 claimQuestBtn.onclick = () => {
-  // myös mobile: herättää audio contextin
-  ensureAudio();
+  ensureAudio(); // mobile-friendly
   claimActiveQuest();
 };
 
