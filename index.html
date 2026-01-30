@@ -5,21 +5,84 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Idle Clicker</title>
   <style>
-    body { font-family: system-ui, Arial, sans-serif; max-width: 980px; margin: 40px auto; padding: 0 16px; }
-    .card { border: 1px solid #ddd; border-radius: 14px; padding: 16px; margin: 12px 0; }
-    .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
-    .big { font-size: 22px; font-weight: 800; }
+    :root { --radius: 14px; }
+
+    body {
+      font-family: system-ui, Arial, sans-serif;
+      max-width: 980px;
+      margin: 40px auto;
+      padding: 0 16px;
+    }
+
+    h1 { margin: 0 0 12px; }
+
+    .card {
+      border: 1px solid #ddd;
+      border-radius: var(--radius);
+      padding: 16px;
+      margin: 12px 0;
+      background: #fff;
+    }
+
+    .row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .big { font-size: 22px; font-weight: 900; }
     .muted { color: #666; }
-    button { padding: 10px 14px; border-radius: 10px; border: 1px solid #ccc; cursor: pointer; background: #fff; }
-    button:disabled { opacity: .5; cursor: not-allowed; }
-    .shopGrid { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 12px; }
-    .item { border: 1px solid #eee; border-radius: 14px; padding: 12px; display: grid; gap: 8px; }
-    .itemTop { display:flex; justify-content: space-between; gap: 12px; align-items: baseline; flex-wrap: wrap; }
-    .itemName { font-weight: 900; }
+    .small { font-size: 13px; }
+    code { background: #f6f6f6; padding: 2px 6px; border-radius: 6px; }
+
+    button {
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid #ccc;
+      cursor: pointer;
+      background: #fff;
+      font-weight: 700;
+    }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+
+    .shopGrid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .item {
+      border: 1px solid #eee;
+      border-radius: var(--radius);
+      padding: 12px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .itemTop {
+      display:flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
+      flex-wrap: wrap;
+    }
+
+    .itemName { font-weight: 950; }
+
     .pillRow { display:flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-    .pill { border: 1px solid #ddd; border-radius: 999px; padding: 6px 10px; background: #fff; }
-    .pill.active { border-color: #999; font-weight: 900; }
+    .pill {
+      border: 1px solid #ddd;
+      border-radius: 999px;
+      padding: 8px 12px;
+      background: #fff;
+      font-weight: 800;
+    }
+    .pill.active { border-color: #999; }
+
     .btnRow { display:flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
     hr { border: none; border-top: 1px solid #eee; margin: 12px 0; }
 
     /* Click pop */
@@ -29,7 +92,7 @@
       left: 10px;
       top: -6px;
       pointer-events: none;
-      font-weight: 900;
+      font-weight: 950;
       opacity: 0;
       transform: translateY(0);
       animation: popAnim 650ms ease-out forwards;
@@ -57,9 +120,19 @@
       transition: width 200ms linear;
     }
 
-    /* Footer tips */
-    .small { font-size: 13px; }
-    code { background: #f6f6f6; padding: 2px 6px; border-radius: 6px; }
+    /* ======= MOBIILI ======= */
+    @media (max-width: 640px) {
+      body { margin: 18px auto; padding: 0 12px; }
+      .card { padding: 14px; }
+      .big { font-size: 20px; }
+      button { width: 100%; padding: 14px 14px; border-radius: 14px; }
+      .row { align-items: stretch; }
+      .pillRow { width: 100%; }
+      .pill { width: auto; }
+      .btnRow { align-items: stretch; }
+      .itemTop { flex-direction: column; align-items: flex-start; }
+      .popLayer { padding-bottom: 6px; }
+    }
   </style>
 </head>
 <body>
@@ -93,6 +166,9 @@
   <div class="big">Prestige: <span id="prestigePts">0</span> pts</div>
   <div class="muted">Kerroin: x<span id="prestigeMult">1.00</span></div>
   <button id="prestigeBtn">Prestige (saat <span id="prestigeGain">0</span>)</button>
+  <div class="muted small" style="margin-top:8px;">
+    Balanssi: saat prestige-pisteitä noin <b>5k</b> kolikon välein (nousee hitaasti), ja jokainen piste antaa <b>+4%</b>.
+  </div>
 </div>
 
 <div class="card">
@@ -105,6 +181,7 @@
     <div class="pillRow" aria-label="Ostomoodi">
       <button class="pill active" id="buyMode1">x1</button>
       <button class="pill" id="buyMode10">x10</button>
+      <button class="pill" id="buyMode25">x25</button>
       <button class="pill" id="buyModeMax">Max</button>
     </div>
   </div>
@@ -133,10 +210,8 @@
 <div class="card">
   <div class="big">Julkaisu (GitHub Pages)</div>
   <div class="muted small">
-    1) Tee GitHubiin uusi repo (esim. <code>idle-clicker</code>)<br>
-    2) Lisää tämä tiedosto repoosi nimellä <code>index.html</code><br>
-    3) Repo → Settings → Pages → “Deploy from a branch” → Branch: <code>main</code> / folder: <code>/ (root)</code><br>
-    4) Saat julkisen linkin muutamassa sekunnissa/minuutissa (Pages-osiossa).
+    Repo → <b>Settings</b> → <b>Pages</b> → Source: <b>Deploy from a branch</b> → Branch: <b>main</b> / Folder: <b>/(root)</b><br>
+    Varmista tiedostonimi: <code>index.html</code> (pieni i).
   </div>
 </div>
 
@@ -153,31 +228,36 @@ let clickUpgradeCost = 25;
 
 let prestigePoints = 0;
 
-let buyMode = "x1"; // "x1" | "x10" | "max"
+let buyMode = "x1"; // "x1" | "x10" | "x25" | "max"
 
 let totalClicks = 0;
 let achievements = {
   firstGenerator: false,
   tenTotalBuildings: false,
   hundredClicks: false,
+  firstPrestige: false,
 };
 let lastAchMessage = "";
 
-const SAVE_KEY = "idle_clicker_v04_polish";
+const SAVE_KEY = "idle_clicker_v05_balance_mobile";
 let autosaveId = null;
 let idleTickId = null;
 
-let buildings = [
-  { id: "b1", name: "Pikkukone", baseCost: 10,   baseCps: 1,  owned: 0 },
-  { id: "b2", name: "Tehdas",    baseCost: 100,  baseCps: 10, owned: 0 },
-  { id: "b3", name: "Avaruusasema", baseCost: 1000, baseCps: 80, owned: 0 },
-];
+// ===== Balanssi: rakennusten kasvu =====
+const PRICE_GROWTH = 1.14;
 
-const PRICE_GROWTH = 1.15;
+// Lisää rakennuksia (progressio)
+let buildings = [
+  { id: "b1", name: "Klikkeri",      baseCost: 10,        baseCps: 1,        owned: 0 },
+  { id: "b2", name: "Työpaja",       baseCost: 120,       baseCps: 10,       owned: 0 },
+  { id: "b3", name: "Tehdas",        baseCost: 1400,      baseCps: 80,       owned: 0 },
+  { id: "b4", name: "Voimalaitos",   baseCost: 18000,     baseCps: 650,      owned: 0 },
+  { id: "b5", name: "Megakompleksi", baseCost: 260000,    baseCps: 5200,     owned: 0 },
+  { id: "b6", name: "Avaruusasema",  baseCost: 4000000,   baseCps: 42000,    owned: 0 },
+];
 
 //// ======= FORMAT =======
 function fmt(n) {
-  // turvallinen muotoilu isoille luvuille (K/M/B/T)
   const x = Number(n);
   if (!Number.isFinite(x)) return "0";
   const abs = Math.abs(x);
@@ -199,12 +279,16 @@ function fmt(n) {
   return String(Math.floor(x));
 }
 
-//// ======= PRESTIGE =======
+//// ======= PRESTIGE (BALANSSI) =======
+// 4% per piste (pehmeämpi kuin 5%)
 function getPrestigeMultiplier() {
-  return 1 + prestigePoints * 0.05;
+  return 1 + prestigePoints * 0.04;
 }
+
+// 1 piste ~ 5k coins (aiemmin 1k). Sqrt tekee että kasvu hidastuu.
+// 5k => 1, 20k => 2, 45k => 3, 80k => 4, ...
 function calcPrestigeGain() {
-  return Math.floor(Math.sqrt(coins / 1000));
+  return Math.floor(Math.sqrt(coins / 5000));
 }
 
 //// ======= CPS + HINNAT =======
@@ -213,9 +297,11 @@ function calcPerSecond() {
   for (const b of buildings) cps += b.owned * b.baseCps;
   return cps;
 }
+
 function costOfNext(b) {
   return Math.ceil(b.baseCost * Math.pow(PRICE_GROWTH, b.owned));
 }
+
 function costForN(b, n) {
   const start = b.baseCost * Math.pow(PRICE_GROWTH, b.owned);
   const total = start * (Math.pow(PRICE_GROWTH, n) - 1) / (PRICE_GROWTH - 1);
@@ -224,6 +310,7 @@ function costForN(b, n) {
 
 //// ======= SMART MAX BUY =======
 function bestValueBuilding() {
+  // cps per next-cost
   let best = null;
   let bestScore = -Infinity;
   for (const b of buildings) {
@@ -236,8 +323,9 @@ function bestValueBuilding() {
   }
   return best;
 }
+
 function smartMaxBuy() {
-  let safety = 2500;
+  let safety = 4000;
   while (safety-- > 0) {
     const b = bestValueBuilding();
     if (!b) break;
@@ -252,6 +340,7 @@ function smartMaxBuy() {
 function totalBuildingsOwned() {
   return buildings.reduce((sum, b) => sum + b.owned, 0);
 }
+
 function awardAchievement(key, message, rewardFn) {
   if (achievements[key]) return false;
   achievements[key] = true;
@@ -259,35 +348,46 @@ function awardAchievement(key, message, rewardFn) {
   lastAchMessage = message;
   return true;
 }
+
 function checkAchievements() {
   if (totalBuildingsOwned() >= 1) {
     awardAchievement("firstGenerator", "🏆 Ensimmäinen rakennus! +25 kolikkoa", () => {
       coins += 25;
     });
   }
+
   if (totalBuildingsOwned() >= 10) {
     awardAchievement("tenTotalBuildings", "🏆 10 rakennusta! Click Upgrade -hinta -10% (kerran)", () => {
       clickUpgradeCost = Math.ceil(clickUpgradeCost * 0.9);
     });
   }
+
   if (totalClicks >= 100) {
     awardAchievement("hundredClicks", "🏆 100 klikkiä! +1 perClick", () => {
       perClick += 1;
     });
   }
+
+  if (prestigePoints >= 1) {
+    awardAchievement("firstPrestige", "🏆 Ensimmäinen prestige! +5% offline-cap (12h → 12.6h)", () => {
+      // palkinto toteutetaan offline-capissa (lasketaan dynaamisesti)
+    });
+  }
 }
 
 function getMilestone() {
-  const factory = buildings.find(b => b.id === "b2");
-  const station = buildings.find(b => b.id === "b3");
+  // Selkeä progressio: avaa seuraavaa “tuntumaa”
+  const b2 = buildings.find(b => b.id === "b2");
+  const b3 = buildings.find(b => b.id === "b3");
+  const b4 = buildings.find(b => b.id === "b4");
+  const b6 = buildings.find(b => b.id === "b6");
 
-  if (factory.owned < 10) {
-    return { text: `Osta 10 Tehdasta (nyt ${factory.owned}/10)`, cur: factory.owned, goal: 10, hint: "Tehdas tuottaa paljon /s." };
-  }
-  if (station.owned < 5) {
-    return { text: `Osta 5 Avaruusasemaa (nyt ${station.owned}/5)`, cur: station.owned, goal: 5, hint: "Avaruusasema on iso loikka tuotossa." };
-  }
-  return { text: "Olet saavuttanut tämän version tavoitteet. Lisää pian lisää!", cur: 1, goal: 1, hint: "Seuraavaksi: lisää rakennuksia / achievementteja." };
+  if (b2.owned < 10) return { text: `Osta 10 Työpajaa (nyt ${b2.owned}/10)`, cur: b2.owned, goal: 10, hint: "Työpaja on ensimmäinen iso /s hyppy." };
+  if (b3.owned < 10) return { text: `Osta 10 Tehdasta (nyt ${b3.owned}/10)`, cur: b3.owned, goal: 10, hint: "Tehdas vie sinut kunnolla idleen." };
+  if (b4.owned < 5)  return { text: `Osta 5 Voimalaitosta (nyt ${b4.owned}/5)`, cur: b4.owned, goal: 5, hint: "Voimalaitos tekee prestigesta helpompaa." };
+  if (b6.owned < 1)  return { text: `Osta 1 Avaruusasema (nyt ${b6.owned}/1)`, cur: b6.owned, goal: 1, hint: "Tämä on version “bossi”." };
+
+  return { text: "Olet saavuttanut tämän version tavoitteet. Lisää pian lisää!", cur: 1, goal: 1, hint: "Seuraavaksi: lisää achievementteja & rakennuksia." };
 }
 
 //// ======= UI ELEMENTIT =======
@@ -319,6 +419,7 @@ const prestigeBtn = document.getElementById("prestigeBtn");
 
 const buyMode1 = document.getElementById("buyMode1");
 const buyMode10 = document.getElementById("buyMode10");
+const buyMode25 = document.getElementById("buyMode25");
 const buyModeMax = document.getElementById("buyModeMax");
 
 const shopGrid = document.getElementById("shopGrid");
@@ -329,9 +430,8 @@ function spawnPop(text) {
   const el = document.createElement("div");
   el.className = "pop";
   el.textContent = text;
-  // pieni satunnaisuus, näyttää elävämmältä
-  el.style.left = (10 + Math.floor(Math.random() * 80)) + "px";
-  el.style.top = (-6 - Math.floor(Math.random() * 6)) + "px";
+  el.style.left = (10 + Math.floor(Math.random() * 120)) + "px";
+  el.style.top = = (-6 - Math.floor(Math.random() * 6)) + "px";
   popContainer.appendChild(el);
   setTimeout(() => el.remove(), 800);
 }
@@ -389,6 +489,7 @@ function setBuyMode(mode) {
   buyMode = mode;
   buyMode1.classList.toggle("active", mode === "x1");
   buyMode10.classList.toggle("active", mode === "x10");
+  buyMode25.classList.toggle("active", mode === "x25");
   buyModeMax.classList.toggle("active", mode === "max");
 }
 
@@ -425,6 +526,7 @@ function updateUI() {
   list.push(achievements.firstGenerator ? "✅ Ensimmäinen rakennus" : "⬜ Ensimmäinen rakennus");
   list.push(achievements.tenTotalBuildings ? "✅ 10 rakennusta" : "⬜ 10 rakennusta");
   list.push(achievements.hundredClicks ? "✅ 100 klikkiä" : "⬜ 100 klikkiä");
+  list.push(achievements.firstPrestige ? "✅ Ensimmäinen prestige" : "⬜ Ensimmäinen prestige");
   elAchText.textContent = (lastAchMessage ? (lastAchMessage + " | ") : "") + list.join(" • ");
 
   // shop hinnat + disable
@@ -441,13 +543,15 @@ function updateUI() {
     let showCost = 0;
     if (buyMode === "x1") showCost = costOfNext(b);
     else if (buyMode === "x10") showCost = costForN(b, 10);
-    else showCost = costOfNext(b); // Max näyttää next-cost
+    else if (buyMode === "x25") showCost = costForN(b, 25);
+    else showCost = costOfNext(b); // Max: näyttää seuraavan yksittäisen hinnan
 
     costSpan.textContent = fmt(showCost);
 
     let canBuy = false;
     if (buyMode === "x1") canBuy = coins >= costOfNext(b);
     else if (buyMode === "x10") canBuy = coins >= costForN(b, 10);
+    else if (buyMode === "x25") canBuy = coins >= costForN(b, 25);
     else canBuy = !!best && coins >= costOfNext(best);
 
     buyBtn.disabled = !canBuy;
@@ -467,6 +571,7 @@ function buyBuilding(id) {
 
   let n = 1;
   if (buyMode === "x10") n = 10;
+  if (buyMode === "x25") n = 25;
 
   const totalCost = costForN(b, n);
   if (coins < totalCost) return;
@@ -518,6 +623,12 @@ function loadGame() {
 }
 
 //// ======= OFFLINE =======
+function offlineCapSeconds() {
+  // perus 12h, ja jos firstPrestige-ach saavutettu, +5% (12.6h)
+  const base = 12 * 60 * 60;
+  return achievements.firstPrestige ? Math.floor(base * 1.05) : base;
+}
+
 function applyOfflineEarnings() {
   const raw = localStorage.getItem(SAVE_KEY);
   if (!raw) return;
@@ -526,7 +637,7 @@ function applyOfflineEarnings() {
   const secondsAway = Math.floor((Date.now() - Number(d.savedAt)) / 1000);
   if (!Number.isFinite(secondsAway) || secondsAway <= 0) return;
 
-  const cap = Math.min(secondsAway, 12 * 60 * 60);
+  const cap = Math.min(secondsAway, offlineCapSeconds());
 
   const savedBuildings = Array.isArray(d.buildings) ? d.buildings : [];
   let savedCps = 0;
@@ -539,7 +650,7 @@ function applyOfflineEarnings() {
   const gained = cap * savedCps * getPrestigeMultiplier();
   coins += gained;
 
-  elOfflineInfo.textContent = `poissa ${secondsAway}s → +${fmt(gained)} kolikkoa (cap ${fmt(cap)}s)`;
+  elOfflineInfo.textContent = `poissa ${fmt(secondsAway)}s → +${fmt(gained)} kolikkoa (cap ${fmt(cap)}s)`;
 }
 
 //// ======= EVENTIT =======
@@ -547,7 +658,15 @@ clickBtn.onclick = () => {
   totalClicks += 1;
   const gain = perClick * getPrestigeMultiplier();
   coins += gain;
-  spawnPop("+" + fmt(gain));
+  // pop
+  const el = document.createElement("div");
+  el.className = "pop";
+  el.textContent = "+" + fmt(gain);
+  el.style.left = (10 + Math.floor(Math.random() * 120)) + "px";
+  el.style.top = (-6 - Math.floor(Math.random() * 6)) + "px";
+  popContainer.appendChild(el);
+  setTimeout(() => el.remove(), 800);
+
   updateUI();
 };
 
@@ -556,7 +675,10 @@ buyClickBtn.onclick = () => {
   coins -= clickUpgradeCost;
   clickUpgrades++;
   perClick++;
-  clickUpgradeCost = Math.ceil(clickUpgradeCost * 1.2);
+
+  // Balanssi: click-upgrade kasvaa vähän kovemmin, ettei se karkaa liian tehokkaaksi
+  clickUpgradeCost = Math.ceil(clickUpgradeCost * 1.23);
+
   updateUI();
 };
 
@@ -587,8 +709,9 @@ resetBtn.onclick = () => {
   location.reload();
 };
 
-buyMode1.onclick = () => { setBuyMode("x1"); updateUI(); };
+buyMode1.onclick  = () => { setBuyMode("x1");  updateUI(); };
 buyMode10.onclick = () => { setBuyMode("x10"); updateUI(); };
+buyMode25.onclick = () => { setBuyMode("x25"); updateUI(); };
 buyModeMax.onclick = () => { setBuyMode("max"); updateUI(); };
 
 //// ======= AJASTIMET =======
@@ -597,21 +720,3 @@ function startTimers() {
     const perSecond = calcPerSecond();
     coins += (perSecond * getPrestigeMultiplier()) / 10;
     updateUI();
-  }, 100);
-
-  autosaveId = setInterval(saveGame, 10000);
-}
-
-//// ======= START =======
-renderShop();
-setBuyMode("x1");
-loadGame();
-applyOfflineEarnings();
-updateUI();
-startTimers();
-
-})();
-</script>
-
-</body>
-</html>
