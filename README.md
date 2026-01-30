@@ -1,0 +1,2 @@
+# Idle-clicker
+Idle clicker
