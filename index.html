@@ -242,7 +242,6 @@
     }
     .fadeInUp{ animation: fadeInUp 260ms ease-out both; }
 
-    /* Next quest in bump */
     @keyframes bump{
       0% { transform: translateY(0) scale(1); }
       35% { transform: translateY(-1px) scale(1.08); }
@@ -270,16 +269,8 @@
       border: 1px solid rgba(255,255,255,.10);
       box-shadow: 0 10px 24px rgba(0,0,0,.22);
     }
-    .ringSvg{
-      width: 22px;
-      height: 22px;
-      display:block;
-    }
-    .ringTrack{
-      stroke: rgba(255,255,255,.12);
-      stroke-width: 3.5;
-      fill: none;
-    }
+    .ringSvg{ width: 22px; height: 22px; display:block; }
+    .ringTrack{ stroke: rgba(255,255,255,.12); stroke-width: 3.5; fill: none; }
     .ringProg{
       stroke: rgba(56,189,248,.95);
       stroke-width: 3.5;
@@ -338,9 +329,7 @@
       75% { transform: translate(-2px, 1px); }
       100% { transform: translate(0,0); }
     }
-    body.shake{
-      animation: shake 320ms ease-out;
-    }
+    body.shake{ animation: shake 320ms ease-out; }
 
     @media (max-width: 640px){
       body { margin: 18px auto; padding: 0 12px; }
@@ -431,7 +420,7 @@
   <div class="row" style="justify-content: space-between;">
     <div>
       <div class="big">Kauppa</div>
-      <div class="muted">Osta tuottavia rakennuksia. Hinta kasvaa ostojen myötä.</div>
+      <div class="muted">Seuraava tier aukeaa vasta kun edellistä on ostettu <b>10 kpl</b>.</div>
       <div class="muted small">Max-tilassa “Osta” käyttää Smart Maxia (ostaa parasta arvoa).</div>
     </div>
     <div class="pillRow" aria-label="Ostomoodi">
@@ -489,7 +478,7 @@ let achievements = {
 };
 let lastAchMessage = "";
 
-const SAVE_KEY = "idle_clicker_v12_ring_rarity_shake";
+const SAVE_KEY = "idle_clicker_v13_tiers_questbaseline";
 
 let autosaveId = null;
 let idleTickId = null;
@@ -507,6 +496,21 @@ let buildings = [
   { id: "b5", name: "Megakompleksi", baseCost: 260000,    baseCps: 5200,     owned: 0 },
   { id: "b6", name: "Avaruusasema",  baseCost: 4000000,   baseCps: 42000,    owned: 0 },
 ];
+
+//// ======= TIER-LOCK =======
+// b1 aina auki, b2 auki kun b1 >= 10, b3 kun b2 >= 10, jne.
+function buildingIndexById(id) {
+  return buildings.findIndex(b => b.id === id);
+}
+function isUnlockedIndex(i) {
+  if (i <= 0) return true;
+  return (buildings[i - 1]?.owned || 0) >= 10;
+}
+function isUnlockedId(id) {
+  const i = buildingIndexById(id);
+  if (i < 0) return false;
+  return isUnlockedIndex(i);
+}
 
 //// ======= QUEST =======
 const QUEST_COOLDOWN = 60 * 60; // 1h
@@ -608,11 +612,13 @@ function costForN(b, n) {
   return Math.ceil(total);
 }
 
-//// ======= SMART MAX BUY =======
+//// ======= SMART MAX BUY (tier-lock huomioiden) =======
 function bestValueBuilding() {
   let best = null;
   let bestScore = -Infinity;
-  for (const b of buildings) {
+  for (let i = 0; i < buildings.length; i++) {
+    if (!isUnlockedIndex(i)) continue;
+    const b = buildings[i];
     const c = costOfNext(b);
     if (c <= 0) continue;
     const score = b.baseCps / c;
@@ -693,7 +699,7 @@ function getMilestone() {
   return { text: "Olet saavuttanut tämän version tavoitteet. Lisää pian lisää!", cur: 1, goal: 1, hint: "Seuraavaksi: lisää achievementteja & rakennuksia." };
 }
 
-//// ======= QUEST: EASY/HARD + RARITY =======
+//// ======= QUEST: baseline vasta hyväksynnässä =======
 function makeBaseline() {
   return {
     clicks: totalClicks,
@@ -702,6 +708,7 @@ function makeBaseline() {
     ownedById: Object.fromEntries(buildings.map(b => [b.id, b.owned])),
   };
 }
+
 function rollRarity() {
   const r = Math.random();
   if (r < 0.72) return { name: "Common", mult: 1.00 };
@@ -709,11 +716,12 @@ function rollRarity() {
   return { name: "Epic",   mult: 1.80 };
 }
 function clampInt(n, min, max) { return Math.max(min, Math.min(max, Math.floor(n))); }
+
 function createQuestTemplate(type, title, target, rewardCoins, rewardSeconds, extra = {}) {
   return {
     id: newQuestId(),
     type, title, target,
-    baseline: makeBaseline(),
+    baseline: null, // <-- tärkein muutos: asetetaan vasta hyväksynnässä
     rewardCoins, rewardSeconds,
     difficulty: extra.difficulty || "A",
     rarity: extra.rarity || "Common",
@@ -721,6 +729,7 @@ function createQuestTemplate(type, title, target, rewardCoins, rewardSeconds, ex
     targetBuildingId: extra.targetBuildingId
   };
 }
+
 function generateBaseQuest() {
   const curCps = Math.max(1, calcPerSecond());
   const r = Math.random();
@@ -732,22 +741,33 @@ function generateBaseQuest() {
     const target = Math.max(50, Math.min(900, Math.ceil(120 + Math.sqrt(curCps) * 40)));
     return { type: "click", title: `Klikkaa {N} kertaa`, target, rewardCoins: baseRewardCoins, rewardSeconds: baseRewardSeconds };
   }
+
   if (r < 0.56) {
     const target = Math.max(1000, Math.min(3000000, Math.ceil(curCps * 180)));
     return { type: "earn", title: `Ansaitse {X} kolikkoa`, target, rewardCoins: Math.ceil(baseRewardCoins * 1.05), rewardSeconds: baseRewardSeconds };
   }
+
   if (r < 0.80) {
     const target = Math.max(3, Math.min(60, Math.ceil(6 + Math.log10(curCps + 10) * 6)));
     return { type: "buyAny", title: `Osta {N} rakennusta`, target, rewardCoins: Math.ceil(baseRewardCoins * 1.10), rewardSeconds: baseRewardSeconds };
   }
-  const candidates = buildings.slice(1);
+
+  // buy specific: valitse vain AUKI olevista (ei lukittuja)
+  const candidates = buildings.slice(1).filter(b => isUnlockedId(b.id));
+  if (candidates.length === 0) {
+    const target = Math.max(3, Math.min(60, Math.ceil(6 + Math.log10(curCps + 10) * 6)));
+    return { type: "buyAny", title: `Osta {N} rakennusta`, target, rewardCoins: Math.ceil(baseRewardCoins * 1.10), rewardSeconds: baseRewardSeconds };
+  }
+
   const pick = candidates[Math.floor(Math.random() * candidates.length)];
   const target = Math.max(1, Math.min(12, Math.ceil(2 + Math.log10(curCps + 10) * 1.5)));
   return { type: "buySpecific", title: `Osta {N} × ${pick.name}`, target, rewardCoins: Math.ceil(baseRewardCoins * 1.15), rewardSeconds: baseRewardSeconds, targetBuildingId: pick.id };
 }
+
 function materializeTitle(base, target) {
   return base.title.replace("{N}", String(target)).replace("{X}", fmt(target));
 }
+
 function makeVariantFromBase(base, variant) {
   const rar = rollRarity();
   const targetMult = (variant === "easy") ? 0.78 : 1.35;
@@ -777,6 +797,7 @@ function makeVariantFromBase(base, variant) {
     }
   );
 }
+
 function generateQuestPair() {
   const base = generateBaseQuest();
   const qa = makeVariantFromBase(base, "easy");
@@ -785,6 +806,7 @@ function generateQuestPair() {
   if (qb.target <= qa.target) qb.target = qa.target + Math.max(1, Math.floor(qa.target * 0.25));
   return [qa, qb];
 }
+
 function ensureQuestChoices() {
   if (questState.readyAt > 0) return;
   if (questState.active) return;
@@ -793,35 +815,47 @@ function ensureQuestChoices() {
   questState.choices = [a, b];
   markDirty();
 }
+
 function activeQuestProgress(q) {
   if (!q) return 0;
-  if (q.type === "click") return Math.max(0, totalClicks - q.baseline.clicks);
-  if (q.type === "earn") return Math.max(0, Math.floor(lifetimeEarned - q.baseline.earned));
-  if (q.type === "buyAny") return Math.max(0, totalBuildingsOwned() - q.baseline.buildings);
+
+  // Jos baseline puuttuu (vanha save tms), aloitetaan "nyt" ettei ota aiempaa huomioon
+  const base = (q.baseline && typeof q.baseline === "object") ? q.baseline : makeBaseline();
+
+  if (q.type === "click") return Math.max(0, totalClicks - base.clicks);
+  if (q.type === "earn") return Math.max(0, Math.floor(lifetimeEarned - base.earned));
+  if (q.type === "buyAny") return Math.max(0, totalBuildingsOwned() - base.buildings);
   if (q.type === "buySpecific") {
     const b = buildings.find(x => x.id === q.targetBuildingId);
     const owned = b ? b.owned : 0;
-    const baseOwned = q.baseline.ownedById[q.targetBuildingId] ?? 0;
+    const baseOwned = base.ownedById[q.targetBuildingId] ?? 0;
     return Math.max(0, owned - baseOwned);
   }
   return 0;
 }
+
 function canClaimActiveQuest() {
   const q = questState.active;
   if (!q) return false;
   if (questState.readyAt > 0) return false;
   return activeQuestProgress(q) >= q.target;
 }
+
 function chooseQuest(choiceId) {
   if (!questState.choices || questState.readyAt > 0 || questState.active) return;
   const picked = questState.choices.find(q => q.id === choiceId);
   if (!picked) return;
+
+  // ✅ baseline asetetaan NYT: laskuri alkaa vasta hyväksynnästä
+  picked.baseline = makeBaseline();
+
   questState.active = picked;
   questState.choices = null;
   lastChoicesKey = "";
   SFX.choose();
   markDirty();
 }
+
 function claimActiveQuest() {
   if (!canClaimActiveQuest()) return;
   const q = questState.active;
@@ -836,19 +870,18 @@ function claimActiveQuest() {
   SFX.claim();
   markDirty();
 
-  // FX: claim confetti (rarity palette)
   const rect = claimQuestBtn.getBoundingClientRect();
   confettiBurst(rect.left + rect.width * 0.5, rect.top + rect.height * 0.3, q.rarity === "Epic" ? 180 : q.rarity === "Rare" ? 140 : 110, paletteForRarity(q.rarity));
 
-  // Epic-only screen shake
   if (q.rarity === "Epic") screenShake();
-
   spawnToast(q.rarity === "Epic" ? "💥 EPIC REWARD CLAIMED!" : "🎉 REWARD CLAIMED!");
 }
+
 function cooldownLeft() {
   if (!questState.readyAt) return 0;
   return Math.max(0, questState.readyAt - nowSec());
 }
+
 function maybeEndCooldown() {
   if (!questState.readyAt) return;
   if (cooldownLeft() === 0) {
@@ -972,7 +1005,6 @@ function paletteForRarity(rarity) {
       "rgba(255,255,255,0.9)",
     ];
   }
-  // Common
   return [
     "rgba(148,163,184,0.98)",
     "rgba(56,189,248,0.75)",
@@ -1064,10 +1096,13 @@ function spawnPop(text) {
   setTimeout(() => el.remove(), 800);
 }
 
-//// ======= SHOP UI =======
+//// ======= SHOP UI (tier-lock: piilota lukitut) =======
 const shopRefs = new Map();
+
 function buildShopOnce() {
   shopGrid.innerHTML = "";
+  shopRefs.clear();
+
   for (const b of buildings) {
     const wrap = document.createElement("div");
     wrap.className = "item";
@@ -1113,6 +1148,7 @@ function buildShopOnce() {
     shopGrid.appendChild(wrap);
 
     shopRefs.set(b.id, {
+      wrap,
       ownedEl: wrap.querySelector(".owned"),
       costEl: wrap.querySelector(".cost"),
       buyBtn
@@ -1133,6 +1169,8 @@ let uiDirty = true;
 function markDirty(){ uiDirty = true; }
 
 function buyBuilding(id) {
+  if (!isUnlockedId(id)) return; // tier-lock
+
   if (buyMode === "max") { smartMaxBuy(); return; }
 
   const b = buildings.find(x => x.id === id);
@@ -1263,7 +1301,7 @@ function updateNextQuestTextAndRing() {
   if (questState.readyAt > 0) {
     setNextQuestTextAnimated(fmtTime(left));
     const p = 1 - (left / QUEST_COOLDOWN);
-    setRingProgress(p, "Rare"); // cooldown ring: neutraali (rare-blue)
+    setRingProgress(p, "Rare");
     return;
   }
 
@@ -1275,7 +1313,6 @@ function updateNextQuestTextAndRing() {
 
   setNextQuestTextAnimated("1h after claim");
 
-  // näytetään quest-progress ring myös aktiivisessa (nice extra):
   const q = questState.active;
   const prog = activeQuestProgress(q);
   const pct = q.target > 0 ? (prog / q.target) : 0;
@@ -1284,6 +1321,7 @@ function updateNextQuestTextAndRing() {
 
 let wasQuestReady = false;
 
+//// ======= UI UPDATE =======
 function updateUI() {
   if (!uiDirty) return;
   uiDirty = false;
@@ -1310,12 +1348,14 @@ function updateUI() {
   elPrestigeGain.textContent = fmt(pg);
   prestigeBtn.disabled = pg <= 0;
 
+  // milestone
   const ms = getMilestone();
   elMilestoneText.textContent = ms.text;
   const mpct = Math.max(0, Math.min(100, (ms.goal > 0 ? (ms.cur / ms.goal) * 100 : 0)));
   elMilestoneFill.style.width = mpct.toFixed(1) + "%";
   elMilestoneHint.textContent = `${ms.cur}/${ms.goal} (${mpct.toFixed(0)}%) — ${ms.hint}`;
 
+  // achievements
   const list = [];
   list.push(achievements.firstGenerator ? "✅ Ensimmäinen rakennus" : "⬜ Ensimmäinen rakennus");
   list.push(achievements.tenTotalBuildings ? "✅ 10 rakennusta" : "⬜ 10 rakennusta");
@@ -1323,10 +1363,16 @@ function updateUI() {
   list.push(achievements.firstPrestige ? "✅ Ensimmäinen prestige" : "⬜ Ensimmäinen prestige");
   elAchText.textContent = (lastAchMessage ? (lastAchMessage + " | ") : "") + list.join(" • ");
 
+  // shop: tier-lock -> piilota lukitut
   const best = bestValueBuilding();
-  for (const b of buildings) {
+  for (let i = 0; i < buildings.length; i++) {
+    const b = buildings[i];
     const ref = shopRefs.get(b.id);
     if (!ref) continue;
+
+    const unlocked = isUnlockedIndex(i);
+    ref.wrap.style.display = unlocked ? "" : "none";
+    if (!unlocked) continue;
 
     ref.ownedEl.textContent = fmt(b.owned);
 
@@ -1347,12 +1393,12 @@ function updateUI() {
     ref.buyBtn.disabled = !canBuy;
   }
 
+  // quest UI
   updateNextQuestTextAndRing();
 
   const ready = canClaimActiveQuest();
   claimQuestBtn.classList.toggle("glowReady", ready);
 
-  // READY trigger once (confetti + toast + sound) with rarity colors
   if (ready && !wasQuestReady) {
     wasQuestReady = true;
     const qr = questState.active ? questState.active.rarity : "Rare";
@@ -1377,17 +1423,17 @@ function updateUI() {
   } else if (!questState.active) {
     elQuestFill.style.width = "0%";
     elQuestText.textContent = "Valitse A (helppo) tai B (vaikea):";
-    elQuestHint.textContent = "B antaa paremman palkinnon (rarity voi nostaa sitä).";
+    elQuestHint.textContent = "Laskuri alkaa vasta kun valitset questin.";
     elQuestCooldown.textContent = "Cooldown alkaa vasta kun lunastat";
     claimQuestBtn.disabled = true;
     renderQuestChoicesIfNeeded();
   } else {
     const q = questState.active;
     const p = activeQuestProgress(q);
-    const pct = Math.max(0, Math.min(100, (q.target > 0 ? (p / q.target) * 100 : 0)));
+    const qpct = Math.max(0, Math.min(100, (q.target > 0 ? (p / q.target) * 100 : 0)));
 
     elQuestText.textContent = `[${q.difficulty} | ${q.rarity}] ${q.title} (${fmt(p)}/${fmt(q.target)})`;
-    elQuestFill.style.width = pct.toFixed(1) + "%";
+    elQuestFill.style.width = qpct.toFixed(1) + "%";
     elQuestHint.textContent = `Palkinto: +${fmt(q.rewardCoins)} kolikkoa +${fmt(q.rewardSeconds)}s tuotot heti`;
     elQuestCooldown.textContent = ready ? "Valmis! Lunasta palkinto 👇" : "Lunasta kun valmis";
     claimQuestBtn.disabled = !ready;
@@ -1501,7 +1547,7 @@ prestigeBtn.onclick = () => {
 };
 
 claimQuestBtn.onclick = () => {
-  ensureAudio(); // mobile-friendly
+  ensureAudio();
   claimActiveQuest();
 };
 
